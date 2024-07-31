@@ -1,3 +1,4 @@
+/* Existing CSS settings */
 html, body {
     height: 100%;
     margin: 0;
@@ -52,6 +53,13 @@ html, body {
 
 .menu-links.active {
     display: flex;
+}
+
+/* Custom styles for disabled button */
+input[type="submit"]:disabled, button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
 }
 
 @media (max-width: 600px) {
@@ -145,16 +153,6 @@ html, body {
 
 .center-content h1 {
     margin: 20px 0;
-}
-
-form {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-form label, form select, form button {
-    margin-bottom: 10px;
 }
 
 /* Table styling */
@@ -252,6 +250,7 @@ td {
     color: red;
     margin-bottom: 15px;
 }
+
 .logout-container {
     background-color: white;
     padding: 20px;
@@ -260,14 +259,17 @@ td {
     text-align: center;
     width: 300px;
 }
+
 .logout-container img {
     max-width: 100%;
     height: auto;
     margin-bottom: 20px;
 }
+
 .logout-container h2 {
     margin-bottom: 20px;
 }
+
 .logout-container a {
     display: inline-block;
     padding: 10px 20px;
@@ -277,6 +279,76 @@ td {
     border-radius: 4px;
     margin-top: 10px;
 }
+
 .logout-container a:hover {
     background-color: #0056b3;
+}
+
+/* Custom form styles */
+.container {
+    width: 50%;
+    margin: 50px auto;
+    padding: 20px;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    text-align: center;
+}
+
+form {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+form > div {
+    flex: 0 0 48%;
+    margin-bottom: 10px;
+}
+
+form > div.full-width {
+    flex: 0 0 100%;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+input[type="text"], input[type="date"], input[type="email"], input[type="tel"] {
+    width: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+input[type="submit"], button {
+    width: 100%;
+    padding: 10px;
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+input[type="submit"]:disabled, button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+}
+
+input[type="submit"]:hover:enabled, button:hover:enabled {
+    background-color: #218838;
+}
+
+.result {
+    margin-top: 20px;
+    background: #e9ecef;
+    padding: 10px;
+}
+
+.error {
+    color: red;
 }
