@@ -2,7 +2,7 @@
 session_start();
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
-$title = "Users to pay Page ";
+$title = "Page to Add Operator ";
 $config = include('config.php');
 include("$root/backend/header.php"); 
 
@@ -14,8 +14,11 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 ini_set('error_reporting', E_ALL);
 ini_set('display_errors', '1');
 ?>
-
+<div class="center-content">
+<img src="7thArea.png" alt="7th Area" />
+</div>
 <div class="container">
+    
     <h2>Submit Your Information</h2>
     <form method="post" id="dataForm">
         <div><label for="callsign">Callsign</label><input type="text" id="callsign" name="callsign" required></div>

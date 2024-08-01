@@ -26,15 +26,11 @@ $footertext = "NA7KR";
         <p>Last updated: <?= date("F d Y H:i:s.", getlastmod()); ?></p>
     </footer>
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const menuToggle = document.querySelector('.menuToggle');
-        const header = document.querySelector('header');
 
-        menuToggle.addEventListener('click', function() {
-            header.classList.toggle('active');
-        });
-    });
-</script>
+<?php
+// Include java.php
+include($root . '/backend/java.php');
+?>
+
 </body>
 </html>
