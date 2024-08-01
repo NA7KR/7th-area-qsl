@@ -15,18 +15,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
-// Initialize variables
-
-$title = "Cards on Hansd";
+$title = "Cards on Hand";
 
 include_once("$root/config.php");
-//require_once("$root/backend/db.class.php");
-//require_once("$root/backend/backend.php");
-//require_once("$root/backend/querybuilder.php");
 include("$root/backend/header.php");
 
-
-// Function to fetch data from the specified table using mdbtools
 function fetchData($dbPath, $tableName) {
     $command = "mdb-export '$dbPath' '$tableName'";
     $output = [];
@@ -39,19 +32,19 @@ function fetchData($dbPath, $tableName) {
     return $output;
 }
 
-// Normalize and trim the column names
 function normalizeHeaders($headers) {
     return array_map('trim', $headers);
 }
 
-// Handle form submission
 $selectedLetter = null;
 $cardData = [];
-$moneyData = [];
 $mailedData = [];
+$returnedData = [];
+$moneyData = [];
 $operatorData = [];
 $totalCardsReceived = 0;
 $totalCardsMailed = 0;
+$totalCardsReturned = 0;
 $totalMoneyReceived = 0;
 $totalCardsOnHand = 0;
 
@@ -59,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     $selectedLetter = $_POST['letter'];
     if (isset($config['sections'][$selectedLetter])) {
         $dbPath = $config['sections'][$selectedLetter];
+
         // Fetch data from tbl_CardRec
         $rawCardData = fetchData($dbPath, 'tbl_CardRec');
         if (!empty($rawCardData)) {
@@ -103,6 +97,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             }
         }
 
+        // Fetch data from tbl_CardR
+        $rawReturnedData = fetchData($dbPath, 'tbl_CardRet');
+        if (!empty($rawReturnedData)) {
+            $headers = normalizeHeaders(str_getcsv(array_shift($rawReturnedData)));
+            $callIndex = array_search('Call', $headers);
+            $cardsReturnedIndex = array_search('CardsReturned', $headers);
+
+            foreach ($rawReturnedData as $row) {
+                $columns = str_getcsv($row);
+                if ($callIndex !== false && $cardsReturnedIndex !== false) {
+                    $call = $columns[$callIndex];
+                    $cardsReturned = (int)$columns[$cardsReturnedIndex];
+                    if (isset($returnedData[$call])) {
+                        $returnedData[$call] += $cardsReturned;
+                    } else {
+                        $returnedData[$call] = $cardsReturned;
+                    }
+                    $totalCardsReturned += $cardsReturned;
+                }
+            }
+        }
+
         // Fetch data from tbl_MoneyR
         $rawMoneyData = fetchData($dbPath, 'tbl_MoneyR');
         if (!empty($rawMoneyData)) {
@@ -128,39 +144,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             $callIndex = array_search('Call', $headers);
             $mailInstIndex = array_search('Mail-Inst', $headers);
 
-            if ($callIndex === false || $mailInstIndex === false) {
-                echo "Error: 'Call' or 'Mail-Inst' column not found in tbl_Operator.";
-            }
-
             foreach ($rawOperatorData as $row) {
                 $columns = str_getcsv($row);
                 if ($callIndex !== false && $mailInstIndex !== false) {
                     $call = $columns[$callIndex];
-                    $mailInst = strtolower(trim($columns[$mailInstIndex]));  // Normalize mail-inst values
+                    $mailInst = strtolower(trim($columns[$mailInstIndex]));
                     $operatorData[$call] = $mailInst;
                 }
             }
-        } else {
-            echo "Error: tbl_Operator data is empty or could not be fetched.";
         }
-
-        // Debugging: Print fetched data
-        //echo '<pre>';
-        //echo 'Card Data: '; print_r($cardData);
-        //echo 'Mailed Data: '; print_r($mailedData);
-        //echo 'Money Data: '; print_r($moneyData);
-        //echo 'Operator Data: '; print_r($operatorData);
-        //echo '</pre>';
 
         // Calculate Cards On Hand and combine data
         $greenData = [];
         $redData = [];
         foreach ($cardData as $call => $cardsReceived) {
             $cardsMailed = isset($mailedData[$call]) ? $mailedData[$call] : 0;
-            $cardsOnHand = $cardsReceived - $cardsMailed;
+            $cardsReturned = isset($returnedData[$call]) ? $returnedData[$call] : 0;
+            $cardsOnHand = $cardsReceived - $cardsMailed - $cardsReturned;
             $totalCardsOnHand += $cardsOnHand;
             $moneyReceived = isset($moneyData[$call]) ? $moneyData[$call] : 0;
             $mailInst = isset($operatorData[$call]) ? $operatorData[$call] : 'full';
+
+            // Debugging: Print each call and its card counts
+            //echo "Call: $call, CardsReceived: $cardsReceived, CardsMailed: $cardsMailed, CardsReturned: $cardsReturned, CardsOnHand: $cardsOnHand<br>";
 
             $entry = [
                 'Call' => $call,
@@ -174,12 +180,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 $redData[] = $entry;
             }
         }
-
-        // Debugging: Print green and red data
-        //echo '<pre>';
-        //echo 'Green Data: '; print_r($greenData);
-        //echo 'Red Data: '; print_r($redData);
-        //echo '</pre>';
 
         // Sort green and red data by Call column
         usort($greenData, function($a, $b) {
@@ -202,23 +202,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         $fullData = array_filter($greenData, function($entry) {
             return $entry['MailInst'] === 'full';
         });
-
-        // Debugging: Print categorized green data
-        //echo '<pre>';
-        //echo 'Monthly Data: '; print_r($monthlyData);
-        //echo 'Quarterly Data: '; print_r($quarterlyData);
-        //echo 'Full Data: '; print_r($fullData);
-        //echo '</pre>';
     } else {
         echo "Error: Invalid database configuration.";
     }
 }
 ?>
 
-
 <div class="center-content">
-        <img src="7thArea.png" alt="7th Area" />
-        <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
+    <img src="7thArea.png" alt="7th Area" />
+    <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
 
     <form method="POST">
         <label for="letter">Select a Section:</label>
@@ -326,5 +318,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     <?php elseif ($selectedLetter !== null): ?>
         <p>No data found or there was an error retrieving the data.</p>
     <?php endif; ?>
+</div>
+
 <?php
 include("$root/backend/footer.php");
+?>

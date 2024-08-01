@@ -107,9 +107,11 @@ $filterEmail = false;
 $filterNoEmail = false;
 $cardData = [];
 $mailedData = [];
+$returnedData = [];
 $operatorData = [];
 $totalCardsReceived = 0;
 $totalCardsMailed = 0;
+$totalCardsReturned = 0;
 $totalCardsOnHand = 0;
 $submittedData = [];
 
@@ -157,6 +159,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 }
             }
         }
+        $rawReturnedData = fetchData($dbPath, 'tbl_CardRet');
+        if (!empty($rawReturnedData)) {
+            $headers = normalizeHeaders(str_getcsv(array_shift($rawReturnedData)));
+            $callIndex = array_search('Call', $headers);
+            $cardsReturnedIndex = array_search('CardsReturned', $headers);
+
+            foreach ($rawReturnedData as $row) {
+                $columns = str_getcsv($row);
+                if ($callIndex !== false && $cardsReturnedIndex !== false) {
+                    $call = $columns[$callIndex];
+                    $cardsReturned = (int)$columns[$cardsReturnedIndex];
+                    if (isset($returnedData[$call])) {
+                        $returnedData[$call] += $cardsReturned;
+                    } else {
+                        $returnedData[$call] = $cardsReturned;
+                    }
+                    $totalCardsReturned += $cardsReturned;
+                }
+            }
+        }
         $rawOperatorData = fetchData($dbPath, 'tbl_Operator');
         if (!empty($rawOperatorData)) {
             $headers = normalizeHeaders(str_getcsv(array_shift($rawOperatorData)));
@@ -199,7 +221,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         $redData = [];
         foreach ($cardData as $call => $cardsReceived) {
             $cardsMailed = $mailedData[$call] ?? 0;
-            $cardsOnHand = $cardsReceived - $cardsMailed;
+            $cardsReturned = $returnedData[$call] ?? 0;
+            $cardsOnHand = $cardsReceived - $cardsMailed - $cardsReturned;
             $totalCardsOnHand += $cardsOnHand;
             $firstName = $operatorData[$call]['firstName'] ?? '';
             $lastName = $operatorData[$call]['lastName'] ?? '';
