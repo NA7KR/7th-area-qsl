@@ -1,4 +1,5 @@
 <?php
+<?php
 /*
 Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
 
@@ -17,14 +18,10 @@ limitations under the License.
 session_start();
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
-// Initialize variables
-
 $title = "Users to pay Page ";
 $config = include('config.php');
 include("$root/backend/header.php"); 
 
-
-// Check if the user is logged in
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
@@ -254,8 +251,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
 ?>
 
 <div class="center-content">
-        <img src="7thArea.png" alt="7th Area" />
-        <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
+    <style>
+        /* Scoped form styles */
+        .center-content form {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .center-content form label {
+            margin-bottom: 10px;
+        }
+        .center-content form input,
+        .center-content form select,
+        .center-content form button {
+            margin-bottom: 20px;
+        }
+    </style>
+
+    <img src="7thArea.png" alt="7th Area" />
+    <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
     <form method="POST">
         <label for="letter">Select a Section:</label>
         <select name="letter" id="letter">
@@ -383,8 +397,10 @@ If you have any questions or concerns, please reply to this email or email me at
 
 You can read more about the 7th district QSL bureau at https://wvdxc.org/qsl-bureau-faq.
             </pre>
-        <?php 
-        endforeach; 
-    endif;
+        <?php endforeach; ?>
+    <?php endif; ?>
+</div>
 
+<?php
 include("$root/backend/footer.php");
+?>

@@ -14,57 +14,67 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
  */
+
 session_start();
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
-// Initialize variables
-
 $title = "Login Page";
-$config = include('config.php');
 include("$root/backend/header.php"); 
 
-
 // Include the config file
-$config = include('config.php');
-
+$config = include("$root/config.php");
 
 // Initialize error message
 $error = '';
 
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Get the username and password from the form
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    // Check if the username and password match
-    if ($username === $config['credentials']['username'] && $password === $config['credentials']['password']) {
-        // Set session variables
-        $_SESSION['loggedin'] = true;
-        $_SESSION['username'] = $username;
+ 
+    // Verify the username and password
+    if (isset($config['credentials'][$username])) {
+        $storedPasswordHash = $config['credentials'][$username];
 
-        // Redirect to a protected page
-        header('Location: topay.php');
-        exit;
+
+        if (password_verify($password, $storedPasswordHash)) {
+            // Regenerate session ID to prevent session fixation attacks
+            session_regenerate_id(true);
+
+            // Set session variables
+            $_SESSION['loggedin'] = true;
+            $_SESSION['username'] = $username;
+
+            // Redirect to a protected page
+            header('Location: topay.php');
+            exit;
+        } else {
+            $error = 'Invalid username or password.';
+        }
     } else {
-        // Set error message
         $error = 'Invalid username or password.';
     }
 }
 ?>
 
-
 <div class="center-content">
-        <div class="login-container">
-            <img src="7thArea.png" alt="7th Area" />
-            <h2>Login</h2>
-            <form action="login.php" method="post">
-                <label for="username">Username:</label>
-                <input type="text" id="username" name="username" required>
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
-                <button type="submit">Login</button>
-            </form>
-        </div>
+    <div class="login-container">
+        <img src="7thArea.png" alt="7th Area" />
+        <h2>Login</h2>
+        <?php if ($error): ?>
+            <div class="error-message"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
+        <form action="login.php" method="post">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="password" required>
+            <button type="submit">Login</button>
+        </form>
     </div>
+</div>
+
 <?php
 include("$root/backend/footer.php");
+?>

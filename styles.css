@@ -352,16 +352,3 @@ input[type="submit"]:hover:enabled, button:hover:enabled {
 .error {
     color: red;
 }
-
-/* Ensure that form elements are displayed correctly */
-form {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-form label {
-    margin-bottom: 10px;
-}
-form input, form select, form button {
-    margin-bottom: 20px;
-}
