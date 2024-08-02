@@ -1,4 +1,4 @@
-www/7th-area-qsl/topay.php<?php
+<?php
 /*
 Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
 
