@@ -1,4 +1,4 @@
-<?php
+www/7th-area-qsl/topay.php<?php
 /*
 Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
 
@@ -108,6 +108,8 @@ $filterNoEmail = false;
 $cardData = [];
 $mailedData = [];
 $returnedData = [];
+$moneyReceivedData = [];
+$totalCostData = [];
 $operatorData = [];
 $totalCardsReceived = 0;
 $totalCardsMailed = 0;
@@ -145,15 +147,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             $headers = normalizeHeaders(str_getcsv(array_shift($rawMailedData)));
             $callIndex = array_search('Call', $headers);
             $cardsMailedIndex = array_search('CardsMailed', $headers);
+            $totalCostIndex = array_search('Total Cost', $headers);
             foreach ($rawMailedData as $row) {
                 $columns = str_getcsv($row);
                 if ($callIndex !== false && $cardsMailedIndex !== false) {
                     $call = $columns[$callIndex];
                     $cardsMailed = (int)$columns[$cardsMailedIndex];
+                    $totalCost = isset($columns[$totalCostIndex]) ? (float)$columns[$totalCostIndex] : 0.0;
                     if (isset($mailedData[$call])) {
                         $mailedData[$call] += $cardsMailed;
                     } else {
                         $mailedData[$call] = $cardsMailed;
+                    }
+                    if (isset($totalCostData[$call])) {
+                        $totalCostData[$call] += $totalCost;
+                    } else {
+                        $totalCostData[$call] = $totalCost;
                     }
                     $totalCardsMailed += $cardsMailed;
                 }
@@ -176,6 +185,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                         $returnedData[$call] = $cardsReturned;
                     }
                     $totalCardsReturned += $cardsReturned;
+                }
+            }
+        }
+        $rawMoneyReceivedData = fetchData($dbPath, 'tbl_MoneyR');
+        if (!empty($rawMoneyReceivedData)) {
+            $headers = normalizeHeaders(str_getcsv(array_shift($rawMoneyReceivedData)));
+            $callIndex = array_search('Call', $headers);
+            $moneyReceivedIndex = array_search('MoneyReceived', $headers);
+            foreach ($rawMoneyReceivedData as $row) {
+                $columns = str_getcsv($row);
+                if ($callIndex !== false && $moneyReceivedIndex !== false) {
+                    $call = $columns[$callIndex];
+                    $moneyReceived = (float)$columns[$moneyReceivedIndex];
+                    if (isset($moneyReceivedData[$call])) {
+                        $moneyReceivedData[$call] += $moneyReceived;
+                    } else {
+                        $moneyReceivedData[$call] = $moneyReceived;
+                    }
                 }
             }
         }
@@ -222,6 +249,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         foreach ($cardData as $call => $cardsReceived) {
             $cardsMailed = $mailedData[$call] ?? 0;
             $cardsReturned = $returnedData[$call] ?? 0;
+            $moneyReceived = $moneyReceivedData[$call] ?? 0;
+            $totalCost = $totalCostData[$call] ?? 0;
             $cardsOnHand = $cardsReceived - $cardsMailed - $cardsReturned;
             $totalCardsOnHand += $cardsOnHand;
             $firstName = $operatorData[$call]['firstName'] ?? '';
@@ -232,7 +261,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             $city = $operatorData[$call]['city'] ?? '';
             $state = $operatorData[$call]['state'] ?? '';
             $zip = $operatorData[$call]['zip'] ?? '';
-            if ($cardsOnHand > 0 && 
+            $total = $moneyReceived - $totalCost;
+            if ($cardsOnHand > 0 && $total <= 0 && 
                 ((!$filterEmail && !$filterNoEmail) || 
                 ($filterEmail && !empty($email)) || 
                 ($filterNoEmail && empty($email)))) {
@@ -241,6 +271,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                     'FirstName' => $firstName,
                     'LastName' => $lastName,
                     'CardsOnHand' => $cardsOnHand,
+                    'MoneyReceived' => $moneyReceived,
+                    'TotalCost' => $totalCost,
+                    'Total' => $total,
                     'MailInst' => $mailInst,
                     'Email' => $email,
                     'Address' => $address,
@@ -335,6 +368,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                         <th>First Name</th>
                         <th>Last Name</th>
                         <th>Cards On Hand</th>
+                        <th>Money Received</th>
+                        <th>Total Cost</th>
+                        <th>Total</th>
                         <th>Email</th>
                         <th>Address</th>
                         <th>City</th>
@@ -354,6 +390,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                             <td class="first-name"><?= htmlspecialchars($row['FirstName']) ?></td>
                             <td class="last-name"><?= htmlspecialchars($row['LastName']) ?></td>
                             <td><?= htmlspecialchars($row['CardsOnHand']) ?></td>
+                            <td><?= htmlspecialchars($row['MoneyReceived']) ?></td>
+                            <td><?= htmlspecialchars($row['TotalCost']) ?></td>
+                            <td><?= htmlspecialchars($row['Total']) ?></td>
                             <td><?= htmlspecialchars($row['Email']) ?></td>
                             <td class="address"><?= htmlspecialchars($row['Address']) ?></td>
                             <td class="city"><?= htmlspecialchars($row['City']) ?></td>
@@ -378,6 +417,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 <tr>
                     <th>Call</th>
                     <th>Cards On Hand</th>
+                    <th>Money Received</th>
+                    <th>Total Cost</th>
+                    <th>Total</th>
                     <th>Email</th>
                     <th>Address</th>
                     <th>City</th>
@@ -390,6 +432,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                     <tr>
                         <td><?= htmlspecialchars($row['Call']) ?></td>
                         <td><?= htmlspecialchars($row['CardsOnHand']) ?></td>
+                        <td><?= htmlspecialchars($row['MoneyReceived']) ?></td>
+                        <td><?= htmlspecialchars($row['TotalCost']) ?></td>
+                        <td><?= htmlspecialchars($row['Total']) ?></td>
                         <td><?= htmlspecialchars($row['Email']) ?></td>
                         <td><?= htmlspecialchars($row['Address']) ?></td>
                         <td><?= htmlspecialchars($row['City']) ?></td>
