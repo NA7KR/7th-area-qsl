@@ -21,15 +21,14 @@ $title = "Stamp Tracker";
 include("$root/backend/header.php");
 $config = include($root . '/config.php');
 
-// Enable debugging
 $debug = false;
 
-function fetchData($dbPath, $tableName) {
-    global $debug;
+function fetchData($dbPath, $tableName, $debug = false) {
     $command = "mdb-export \"$dbPath\" \"$tableName\"";
     $output = [];
     $return_var = 0;
     exec($command, $output, $return_var);
+    
     if ($return_var !== 0) {
         echo "Error: Could not retrieve data.";
         if ($debug) {
@@ -38,26 +37,27 @@ function fetchData($dbPath, $tableName) {
         }
         return [];
     }
+    
     if ($debug) {
         error_log("Debug: Successfully executed command: $command");
         error_log("Debug: Output: " . print_r($output, true));
         echo "<p>Debug: Successfully executed command: $command</p>";
         echo "<pre>Debug: Output: " . print_r($output, true) . "</pre>";
     }
+    
     return $output;
 }
 
-$data = [];
-$totalStampsOnHand = 0;
-$totalStampsUsed = 0;
-$totalCostOfPostage = 0;
-$totalPurchaseCost = 0;
+function parseData($rawData, $config, $debug = false) {
+    $data = [];
+    $totals = [
+        'stampsOnHand' => 0,
+        'stampsUsed' => 0,
+        'costOfPostage' => 0,
+        'purchaseCost' => 0,
+    ];
 
-$dbPath = $config['sections']['F'];
-$rawStampData = fetchData($dbPath, 'tbl_Stamps');
-
-if (!empty($rawStampData)) {
-    $headers = str_getcsv(array_shift($rawStampData));
+    $headers = str_getcsv(array_shift($rawData));
     $idIndex = array_search('ID', $headers);
     $valueIndex = array_search('Value', $headers);
     $qtyPurchasedIndex = array_search('QTY Purchased', $headers);
@@ -66,61 +66,70 @@ if (!empty($rawStampData)) {
     if ($idIndex === false || $valueIndex === false || $qtyPurchasedIndex === false || $qtyUsedIndex === false) {
         echo "<p>Debug: Missing required columns in tbl_Stamps.</p>";
         error_log("Debug: Missing required columns in tbl_Stamps.");
-    } else {
-        foreach ($rawStampData as $row) {
-            $columns = str_getcsv($row);
-            $value = $columns[$valueIndex];
-            $qtyPurchased = (int)$columns[$qtyPurchasedIndex];
-            $qtyUsed = (int)$columns[$qtyUsedIndex];
-            
-            // Replace value with corresponding postage cost if it matches
-            if (isset($config['stamps'][$value])) {
-                $value = $config['stamps'][$value];
-            }
-            
-            // Convert value to float for calculations
-            $value = (float) str_replace(',', '.', $value);
-            
-            $stampsOnHand = $qtyPurchased - $qtyUsed;
-            $costOfPostage = $qtyUsed * $value;
-            $total = $qtyPurchased * $value;
+        return [$data, $totals];
+    }
 
-            $data[] = [
-                'Value' => $value,
-                'QTY Purchased' => $qtyPurchased,
-                'QTY Used' => $qtyUsed,
-                'Stamps On Hand' => $stampsOnHand,
-                'Cost of Postage' => $costOfPostage,
-                'Total' => $total
-            ];
+    foreach ($rawData as $row) {
+        $columns = str_getcsv($row);
+        $value = $columns[$valueIndex];
+        
+        $value2 = $columns[$valueIndex];
+        
+        $qtyPurchased = (int)$columns[$qtyPurchasedIndex];
+        $qtyUsed = (int)$columns[$qtyUsedIndex];
 
-            $totalStampsOnHand += $stampsOnHand;
-            $totalStampsUsed += $qtyUsed;
-            $totalCostOfPostage += $costOfPostage;
-            $totalPurchaseCost += $total;
+        if (isset($config['stamps'][$value])) {
+            $value = $config['stamps'][$value];
+        }
 
-            if ($debug) {
-                echo "<p>Debug: Value: $value, QTY Purchased: $qtyPurchased, QTY Used: $qtyUsed, Stamps On Hand: $stampsOnHand, Cost of Postage: $costOfPostage, Total: $total</p>";
-                error_log("Debug: Value: $value, QTY Purchased: $qtyPurchased, QTY Used: $qtyUsed, Stamps On Hand: $stampsOnHand, Cost of Postage: $costOfPostage, Total: $total");
-            }
+        $value = (float) str_replace(',', '.', $value);
+
+        $stampsOnHand = $qtyPurchased - $qtyUsed;
+        $costOfPostage = $qtyUsed * $value;
+        $total = $qtyPurchased * $value;
+
+        $data[] = [
+            'Value' => $value,
+            'Value2' => $value2,
+            'QTY Purchased' => $qtyPurchased,
+            'QTY Used' => $qtyUsed,
+            'Stamps On Hand' => $stampsOnHand,
+            'Cost of Postage' => $costOfPostage,
+            'Total' => $total,
+        ];
+
+        $totals['stampsOnHand'] += $stampsOnHand;
+        $totals['stampsUsed'] += $qtyUsed;
+        $totals['costOfPostage'] += $costOfPostage;
+        $totals['purchaseCost'] += $total;
+
+        if ($debug) {
+            echo "<p>Debug: Value: $value, Value2: $value2, QTY Purchased: $qtyPurchased, QTY Used: $qtyUsed, Stamps On Hand: $stampsOnHand, Cost of Postage: $costOfPostage, Total: $total</p>";
+            error_log("Debug: Value: $value, Value2: $value2, QTY Purchased: $qtyPurchased, QTY Used: $qtyUsed, Stamps On Hand: $stampsOnHand, Cost of Postage: $costOfPostage, Total: $total");
         }
     }
+
+    return [$data, $totals];
 }
 
-// Sort the data by 'Value' in ascending order
+$dbPath = $config['sections']['F'];
+$rawStampData = fetchData($dbPath, 'tbl_Stamps', $debug);
+
+list($data, $totals) = parseData($rawStampData, $config, $debug);
+
 usort($data, function($a, $b) {
     return $a['Value'] <=> $b['Value'];
 });
 
 if ($debug) {
-    echo "<p>Debug: Total Stamps On Hand: $totalStampsOnHand</p>";
-    echo "<p>Debug: Total Stamps Used: $totalStampsUsed</p>";
-    echo "<p>Debug: Total Cost of Postage: $totalCostOfPostage</p>";
-    echo "<p>Debug: Total Purchase Cost: $totalPurchaseCost</p>";
-    error_log("Debug: Total Stamps On Hand: $totalStampsOnHand");
-    error_log("Debug: Total Stamps Used: $totalStampsUsed");
-    error_log("Debug: Total Cost of Postage: $totalCostOfPostage");
-    error_log("Debug: Total Purchase Cost: $totalPurchaseCost");
+    echo "<p>Debug: Total Stamps On Hand: {$totals['stampsOnHand']}</p>";
+    echo "<p>Debug: Total Stamps Used: {$totals['stampsUsed']}</p>";
+    echo "<p>Debug: Total Cost of Postage: {$totals['costOfPostage']}</p>";
+    echo "<p>Debug: Total Purchase Cost: {$totals['purchaseCost']}</p>";
+    error_log("Debug: Total Stamps On Hand: {$totals['stampsOnHand']}");
+    error_log("Debug: Total Stamps Used: {$totals['stampsUsed']}");
+    error_log("Debug: Total Cost of Postage: {$totals['costOfPostage']}");
+    error_log("Debug: Total Purchase Cost: {$totals['purchaseCost']}");
 }
 
 ?>
@@ -129,10 +138,10 @@ if ($debug) {
     <h1 class="my-4 text-center">7th Area Stamp Tracker</h1>
 
     <h2>Stamp Summary</h2>
-    <p>Total Stamps On Hand: <?= htmlspecialchars($totalStampsOnHand) ?></p>
-    <p>Total Stamps Used: <?= htmlspecialchars($totalStampsUsed) ?></p>
-    <p>Total Cost of Postage: $<?= htmlspecialchars($totalCostOfPostage ) ?></p>
-    <p>Total Purchase Cost: $<?= htmlspecialchars($totalPurchaseCost) ?></p> 
+    <p>Total Stamps On Hand: <?= htmlspecialchars($totals['stampsOnHand']) ?></p>
+    <p>Total Stamps Used: <?= htmlspecialchars($totals['stampsUsed']) ?></p>
+    <p>Total Cost of Postage Used: $<?= htmlspecialchars($totals['costOfPostage']) ?></p>
+    <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost']) ?></p> 
 
     <?php if (!empty($data)): ?>
         <table>
@@ -143,13 +152,13 @@ if ($debug) {
                     <th>QTY Used</th>
                     <th>Stamps On Hand</th>
                     <th>Cost of Postage</th>
-                    <th>Total</th>
+                    <th>Total Purchased</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($data as $row): ?>
                     <tr>
-                        <td><?= htmlspecialchars($row['Value']) ?></td>
+                        <td><?= htmlspecialchars($row['Value2']) ?></td>
                         <td><?= htmlspecialchars($row['QTY Purchased']) ?></td>
                         <td><?= htmlspecialchars($row['QTY Used']) ?></td>
                         <td><?= htmlspecialchars($row['Stamps On Hand']) ?></td>
@@ -157,7 +166,6 @@ if ($debug) {
                         <td><?= htmlspecialchars($row['Total']) ?></td>
                     </tr>
                 <?php endforeach; ?>
-               
             </tbody>
         </table>
     <?php else: ?>
