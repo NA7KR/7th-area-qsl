@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['username'] = $username;
 
             // Redirect to a protected page
-            header('Location: topay.php');
+            //header('Location: index.php');
             exit;
         } else {
             $error = 'Invalid username or password.';
