@@ -42,7 +42,8 @@ if (file_exists($headerPath)) {
 <body>
 
 <div class="center-content">
-    <img src="7thArea.png" alt="7th Area" />
+    <img src="/7thArea.png" alt="7th Area" />
+
     <h1 class="my-4 text-center">7th Area QSL Bureau Sorters</h1>
 
 
