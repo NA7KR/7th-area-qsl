@@ -34,43 +34,56 @@ function fetchData($dbPath, $tableName) {
     return $output;
 }
 
-// Handle form submission
-$selectedLetter = null;
-$mailedData = [];
-$totalCardsReturned = 0;
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
-    $selectedLetter = $_POST['letter'];
-    if (isset($config['sections'][$selectedLetter])) {
-        $dbPath = $config['sections'][$selectedLetter];
+// Function to parse CSV data into an associative array
+function parseCsvData($rawData) {
+    $parsedData = [];
+    $totalCardsReturned = 0;
+    if (!empty($rawData)) {
+        $headers = str_getcsv(array_shift($rawData));
+        $callIndex = array_search('Call', $headers);
+        $cardsReturnedIndex = array_search('CardsReturned', $headers);
 
-        // Fetch data from tbl_CardRet
-        $rawMailedData = fetchData($dbPath, 'tbl_CardRet');
-        if (!empty($rawMailedData)) {
-            $headers = str_getcsv(array_shift($rawMailedData));
-            $callIndex = array_search('Call', $headers);
-            $cardsReturnedIndex = array_search('CardsReturned', $headers);
-
-            foreach ($rawMailedData as $row) {
-                $columns = str_getcsv($row);
-                if ($callIndex !== false && $cardsReturnedIndex !== false) {
-                    $cardsReturned = (int)$columns[$cardsReturnedIndex];
-                    $mailedData[] = [
-                        'Call' => $columns[$callIndex],
-                        'CardsReturned' => $cardsReturned
-                    ];
-                    $totalCardsReturned += $cardsReturned;
-                }
+        foreach ($rawData as $row) {
+            $columns = str_getcsv($row);
+            if ($callIndex !== false && $cardsReturnedIndex !== false) {
+                $cardsReturned = (int)$columns[$cardsReturnedIndex];
+                $parsedData[] = [
+                    'Call' => $columns[$callIndex],
+                    'CardsReturned' => $cardsReturned
+                ];
+                $totalCardsReturned += $cardsReturned;
             }
-
-            // Sort mailed data by Call column
-            usort($mailedData, function($a, $b) {
-                return strcasecmp($a['Call'], $b['Call']);
-            });
         }
-    } else {
-        echo "Error: Invalid database configuration.";
+
+        // Sort parsed data by Call column
+        usort($parsedData, function($a, $b) {
+            return strcasecmp($a['Call'], $b['Call']);
+        });
     }
+    return [$parsedData, $totalCardsReturned];
 }
+
+// Function to handle form submission
+function handleFormSubmission($config) {
+    $selectedLetter = null;
+    $mailedData = [];
+    $totalCardsReturned = 0;
+    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
+        $selectedLetter = $_POST['letter'];
+        if (isset($config['sections'][$selectedLetter])) {
+            $dbPath = $config['sections'][$selectedLetter];
+
+            // Fetch data from tbl_CardRet
+            $rawMailedData = fetchData($dbPath, 'tbl_CardRet');
+            list($mailedData, $totalCardsReturned) = parseCsvData($rawMailedData);
+        } else {
+            echo "Error: Invalid database configuration.";
+        }
+    }
+    return [$selectedLetter, $mailedData, $totalCardsReturned];
+}
+
+list($selectedLetter, $mailedData, $totalCardsReturned) = handleFormSubmission($config);
 
 ?>
 

@@ -23,29 +23,55 @@ $config = include($root . '/config.php');
 
 $debug = false;
 
-function fetchData($dbPath, $tableName, $debug = false) {
-    $command = "mdb-export \"$dbPath\" \"$tableName\"";
+// Function to fetch data from the specified table using mdbtools
+function fetchData($dbPath, $tableName) {
+    $command = "mdb-export '$dbPath' '$tableName'";
     $output = [];
     $return_var = 0;
     exec($command, $output, $return_var);
-    
     if ($return_var !== 0) {
-        echo "Error: Could not retrieve data.";
-        if ($debug) {
-            error_log("Debug: Failed to execute command: $command");
-            echo "<p>Debug: Failed to execute command: $command</p>";
-        }
+        echo "Error: Could not retrieve data from $tableName.";
         return [];
     }
-    
-    if ($debug) {
-        error_log("Debug: Successfully executed command: $command");
-        error_log("Debug: Output: " . print_r($output, true));
-        echo "<p>Debug: Successfully executed command: $command</p>";
-        echo "<pre>Debug: Output: " . print_r($output, true) . "</pre>";
-    }
-    
     return $output;
+}
+
+// Handle form submission
+$selectedLetter = null;
+$mailedData = [];
+$totalCardsMailed = 0;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
+    $selectedLetter = $_POST['letter'];
+    if (isset($config['sections'][$selectedLetter])) {
+        $dbPath = $config['sections'][$selectedLetter];
+
+        // Fetch data from tbl_CardM
+        $rawMailedData = fetchData($dbPath, 'tbl_CardM');
+        if (!empty($rawMailedData)) {
+            $headers = str_getcsv(array_shift($rawMailedData));
+            $callIndex = array_search('Call', $headers);
+            $cardsMailedIndex = array_search('CardsMailed', $headers);
+
+            foreach ($rawMailedData as $row) {
+                $columns = str_getcsv($row);
+                if ($callIndex !== false && $cardsMailedIndex !== false) {
+                    $cardsMailed = (int)$columns[$cardsMailedIndex];
+                    $mailedData[] = [
+                        'Call' => $columns[$callIndex],
+                        'CardsMailed' => $cardsMailed
+                    ];
+                    $totalCardsMailed += $cardsMailed;
+                }
+            }
+
+            // Sort mailed data by Call column
+            usort($mailedData, function($a, $b) {
+                return strcasecmp($a['Call'], $b['Call']);
+            });
+        }
+    } else {
+        echo "Error: Invalid database configuration.";
+    }
 }
 
 function parseData($rawData, $config, $debug = false) {
@@ -72,9 +98,7 @@ function parseData($rawData, $config, $debug = false) {
     foreach ($rawData as $row) {
         $columns = str_getcsv($row);
         $value = $columns[$valueIndex];
-        
         $value2 = $columns[$valueIndex];
-        
         $qtyPurchased = (int)$columns[$qtyPurchasedIndex];
         $qtyUsed = (int)$columns[$qtyUsedIndex];
 
@@ -112,36 +136,50 @@ function parseData($rawData, $config, $debug = false) {
     return [$data, $totals];
 }
 
-$dbPath = $config['sections']['F'];
-$rawStampData = fetchData($dbPath, 'tbl_Stamps', $debug);
+if ($selectedLetter !== null) {
+    $dbPath = $config['sections'][$selectedLetter];
+    $rawStampData = fetchData($dbPath, 'tbl_Stamps', $debug);
+    list($data, $totals) = parseData($rawStampData, $config, $debug);
 
-list($data, $totals) = parseData($rawStampData, $config, $debug);
+    usort($data, function($a, $b) {
+        return $a['Value'] <=> $b['Value'];
+    });
 
-usort($data, function($a, $b) {
-    return $a['Value'] <=> $b['Value'];
-});
-
-if ($debug) {
-    echo "<p>Debug: Total Stamps On Hand: {$totals['stampsOnHand']}</p>";
-    echo "<p>Debug: Total Stamps Used: {$totals['stampsUsed']}</p>";
-    echo "<p>Debug: Total Cost of Postage: {$totals['costOfPostage']}</p>";
-    echo "<p>Debug: Total Purchase Cost: {$totals['purchaseCost']}</p>";
-    error_log("Debug: Total Stamps On Hand: {$totals['stampsOnHand']}");
-    error_log("Debug: Total Stamps Used: {$totals['stampsUsed']}");
-    error_log("Debug: Total Cost of Postage: {$totals['costOfPostage']}");
-    error_log("Debug: Total Purchase Cost: {$totals['purchaseCost']}");
+    if ($debug) {
+        echo "<p>Debug: Total Stamps On Hand: {$totals['stampsOnHand']}</p>";
+        echo "<p>Debug: Total Stamps Used: {$totals['stampsUsed']}</p>";
+        echo "<p>Debug: Total Cost of Postage: {$totals['costOfPostage']}</p>";
+        echo "<p>Debug: Total Purchase Cost: {$totals['purchaseCost']}</p>";
+        error_log("Debug: Total Stamps On Hand: {$totals['stampsOnHand']}");
+        error_log("Debug: Total Stamps Used: {$totals['stampsUsed']}");
+        error_log("Debug: Total Cost of Postage: {$totals['costOfPostage']}");
+        error_log("Debug: Total Purchase Cost: {$totals['purchaseCost']}");
+    }
 }
 
 ?>
 <div class="center-content">
-    <img src= "/7thArea.png"   alt="7th Area" />
-    <h1 class="my-4 text-center">7th Area Stamp Tracker</h1>
+    <img src="/7thArea.png" alt="7th Area" />
+
+    <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
+
+    <form method="POST">
+        <label for="letter">Select a Section:</label>
+        <select name="letter" id="letter">
+            <?php foreach ($config['sections'] as $letter => $dbPath): ?>
+                <option value="<?= htmlspecialchars($letter) ?>" <?= $selectedLetter === $letter ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($letter) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <button type="submit">Submit</button>
+    </form>
 
     <h2>Stamp Summary</h2>
-    <p>Total Stamps On Hand: <?= htmlspecialchars($totals['stampsOnHand']) ?></p>
-    <p>Total Stamps Used: <?= htmlspecialchars($totals['stampsUsed']) ?></p>
-    <p>Total Cost of Postage Used: $<?= htmlspecialchars($totals['costOfPostage']) ?></p>
-    <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost']) ?></p> 
+    <p>Total Stamps On Hand: <?= htmlspecialchars($totals['stampsOnHand'] ?? 0) ?></p>
+    <p>Total Stamps Used: <?= htmlspecialchars($totals['stampsUsed'] ?? 0) ?></p>
+    <p>Total Cost of Postage Used: $<?= htmlspecialchars($totals['costOfPostage'] ?? 0) ?></p>
+    <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost'] ?? 0) ?></p> 
 
     <?php if (!empty($data)): ?>
         <table>

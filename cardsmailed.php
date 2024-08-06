@@ -14,6 +14,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Cards Mailed Out";
 
@@ -21,8 +22,6 @@ include("$root/backend/header.php");
 
 $config = include($root . '/config.php');
 
-
-// Function to fetch data from the specified table using mdbtools
 function fetchData($dbPath, $tableName) {
     $command = "mdb-export '$dbPath' '$tableName'";
     $output = [];
@@ -35,50 +34,62 @@ function fetchData($dbPath, $tableName) {
     return $output;
 }
 
-// Handle form submission
-$selectedLetter = null;
-$mailedData = [];
-$totalCardsMailed = 0;
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
-    $selectedLetter = $_POST['letter'];
-    if (isset($config['sections'][$selectedLetter])) {
-        $dbPath = $config['sections'][$selectedLetter];
-
-        // Fetch data from tbl_CardM
-        $rawMailedData = fetchData($dbPath, 'tbl_CardM');
-        if (!empty($rawMailedData)) {
-            $headers = str_getcsv(array_shift($rawMailedData));
-            $callIndex = array_search('Call', $headers);
-            $cardsMailedIndex = array_search('CardsMailed', $headers);
-
-            foreach ($rawMailedData as $row) {
-                $columns = str_getcsv($row);
-                if ($callIndex !== false && $cardsMailedIndex !== false) {
-                    $cardsMailed = (int)$columns[$cardsMailedIndex];
-                    $mailedData[] = [
-                        'Call' => $columns[$callIndex],
-                        'CardsMailed' => $cardsMailed
-                    ];
-                    $totalCardsMailed += $cardsMailed;
-                }
-            }
-
-            // Sort mailed data by Call column
-            usort($mailedData, function($a, $b) {
-                return strcasecmp($a['Call'], $b['Call']);
-            });
-        }
-    } else {
-        echo "Error: Invalid database configuration.";
+function parseMailedData($rawData) {
+    if (empty($rawData)) {
+        return [[], 0];
     }
+
+    $headers = str_getcsv(array_shift($rawData));
+    $callIndex = array_search('Call', $headers);
+    $cardsMailedIndex = array_search('CardsMailed', $headers);
+
+    $mailedData = [];
+    $totalCardsMailed = 0;
+
+    foreach ($rawData as $row) {
+        $columns = str_getcsv($row);
+        if ($callIndex !== false && $cardsMailedIndex !== false) {
+            $cardsMailed = (int)$columns[$cardsMailedIndex];
+            $mailedData[] = [
+                'Call' => $columns[$callIndex],
+                'CardsMailed' => $cardsMailed
+            ];
+            $totalCardsMailed += $cardsMailed;
+        }
+    }
+
+    usort($mailedData, function($a, $b) {
+        return strcasecmp($a['Call'], $b['Call']);
+    });
+
+    return [$mailedData, $totalCardsMailed];
 }
+
+function handleFormSubmission($config) {
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['letter'])) {
+        return [null, [], 0];
+    }
+
+    $selectedLetter = $_POST['letter'];
+    if (!isset($config['sections'][$selectedLetter])) {
+        echo "Error: Invalid database configuration.";
+        return [null, [], 0];
+    }
+
+    $dbPath = $config['sections'][$selectedLetter];
+    $rawMailedData = fetchData($dbPath, 'tbl_CardM');
+    return [$selectedLetter, parseMailedData($rawMailedData)];
+}
+
+list($selectedLetter, $parsedData) = handleFormSubmission($config);
+$mailedData = $parsedData[0];
+$totalCardsMailed = $parsedData[1];
 
 ?>
 
 <div class="center-content">
-        <img src="/7thArea.png" alt="7th Area" />
-
-        <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
+    <img src="/7thArea.png" alt="7th Area" />
+    <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
 
     <form method="POST">
         <label for="letter">Select a Section:</label>
@@ -114,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         </table>
     <?php elseif ($selectedLetter !== null): ?>
         <p>No data found or there was an error retrieving the data.</p>
-    <?php 
-    endif;
-    
-include("$root/backend/footer.php");
+    <?php endif; ?>
+</div>
+
+<?php include("$root/backend/footer.php"); ?>

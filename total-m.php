@@ -36,6 +36,32 @@ function normalizeHeaders($headers) {
     return array_map('trim', $headers);
 }
 
+function processData($rawData, $keyIndexes) {
+    $data = [];
+    foreach ($rawData as $row) {
+        $columns = str_getcsv($row);
+        $key = $columns[$keyIndexes['keyIndex']];
+        $value = (int)$columns[$keyIndexes['valueIndex']];
+        if (isset($data[$key])) {
+            $data[$key] += $value;
+        } else {
+            $data[$key] = $value;
+        }
+    }
+    return $data;
+}
+
+function getData($dbPath, $tableName, $keyIndexes) {
+    $rawData = fetchData($dbPath, $tableName);
+    if (!empty($rawData)) {
+        $headers = normalizeHeaders(str_getcsv(array_shift($rawData)));
+        $keyIndexes['keyIndex'] = array_search($keyIndexes['keyName'], $headers);
+        $keyIndexes['valueIndex'] = array_search($keyIndexes['valueName'], $headers);
+        return processData($rawData, $keyIndexes);
+    }
+    return [];
+}
+
 $selectedLetter = null;
 $cardData = [];
 $mailedData = [];
@@ -53,91 +79,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     if (isset($config['sections'][$selectedLetter])) {
         $dbPath = $config['sections'][$selectedLetter];
 
-        // Fetch data from tbl_CardRec
-        $rawCardData = fetchData($dbPath, 'tbl_CardRec');
-        if (!empty($rawCardData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawCardData)));
-            $callIndex = array_search('Call', $headers);
-            $cardsReceivedIndex = array_search('CardsReceived', $headers);
+        $cardData = getData($dbPath, 'tbl_CardRec', ['keyName' => 'Call', 'valueName' => 'CardsReceived']);
+        $totalCardsReceived = array_sum($cardData);
 
-            foreach ($rawCardData as $row) {
-                $columns = str_getcsv($row);
-                if ($callIndex !== false && $cardsReceivedIndex !== false) {
-                    $call = $columns[$callIndex];
-                    $cardsReceived = (int)$columns[$cardsReceivedIndex];
-                    if (isset($cardData[$call])) {
-                        $cardData[$call] += $cardsReceived;
-                    } else {
-                        $cardData[$call] = $cardsReceived;
-                    }
-                    $totalCardsReceived += $cardsReceived;
-                }
-            }
-        }
+        $mailedData = getData($dbPath, 'tbl_CardM', ['keyName' => 'Call', 'valueName' => 'CardsMailed']);
+        $totalCardsMailed = array_sum($mailedData);
 
-        // Fetch data from tbl_CardM
-        $rawMailedData = fetchData($dbPath, 'tbl_CardM');
-        if (!empty($rawMailedData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawMailedData)));
-            $callIndex = array_search('Call', $headers);
-            $cardsMailedIndex = array_search('CardsMailed', $headers);
+        $returnedData = getData($dbPath, 'tbl_CardRet', ['keyName' => 'Call', 'valueName' => 'CardsReturned']);
+        $totalCardsReturned = array_sum($returnedData);
 
-            foreach ($rawMailedData as $row) {
-                $columns = str_getcsv($row);
-                if ($callIndex !== false && $cardsMailedIndex !== false) {
-                    $call = $columns[$callIndex];
-                    $cardsMailed = (int)$columns[$cardsMailedIndex];
-                    if (isset($mailedData[$call])) {
-                        $mailedData[$call] += $cardsMailed;
-                    } else {
-                        $mailedData[$call] = $cardsMailed;
-                    }
-                    $totalCardsMailed += $cardsMailed;
-                }
-            }
-        }
+        $moneyData = getData($dbPath, 'tbl_MoneyR', ['keyName' => 'Call', 'valueName' => 'MoneyReceived']);
+        $totalMoneyReceived = array_sum($moneyData);
 
-        // Fetch data from tbl_CardR
-        $rawReturnedData = fetchData($dbPath, 'tbl_CardRet');
-        if (!empty($rawReturnedData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawReturnedData)));
-            $callIndex = array_search('Call', $headers);
-            $cardsReturnedIndex = array_search('CardsReturned', $headers);
-
-            foreach ($rawReturnedData as $row) {
-                $columns = str_getcsv($row);
-                if ($callIndex !== false && $cardsReturnedIndex !== false) {
-                    $call = $columns[$callIndex];
-                    $cardsReturned = (int)$columns[$cardsReturnedIndex];
-                    if (isset($returnedData[$call])) {
-                        $returnedData[$call] += $cardsReturned;
-                    } else {
-                        $returnedData[$call] = $cardsReturned;
-                    }
-                    $totalCardsReturned += $cardsReturned;
-                }
-            }
-        }
-
-        // Fetch data from tbl_MoneyR
-        $rawMoneyData = fetchData($dbPath, 'tbl_MoneyR');
-        if (!empty($rawMoneyData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawMoneyData)));
-            $callIndex = array_search('Call', $headers);
-            $moneyReceivedIndex = array_search('MoneyReceived', $headers);
-
-            foreach ($rawMoneyData as $row) {
-                $columns = str_getcsv($row);
-                if ($callIndex !== false && $moneyReceivedIndex !== false) {
-                    $call = $columns[$callIndex];
-                    $moneyReceived = (int)$columns[$moneyReceivedIndex];
-                    $moneyData[$call] = $moneyReceived;
-                    $totalMoneyReceived += $moneyReceived;
-                }
-            }
-        }
-
-        // Fetch data from tbl_Operator
         $rawOperatorData = fetchData($dbPath, 'tbl_Operator');
         if (!empty($rawOperatorData)) {
             $headers = normalizeHeaders(str_getcsv(array_shift($rawOperatorData)));
@@ -146,15 +99,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
 
             foreach ($rawOperatorData as $row) {
                 $columns = str_getcsv($row);
-                if ($callIndex !== false && $mailInstIndex !== false) {
-                    $call = $columns[$callIndex];
-                    $mailInst = strtolower(trim($columns[$mailInstIndex]));
-                    $operatorData[$call] = $mailInst;
-                }
+                $call = $columns[$callIndex];
+                $mailInst = strtolower(trim($columns[$mailInstIndex]));
+                $operatorData[$call] = $mailInst;
             }
         }
 
-        // Calculate Cards On Hand and combine data
         $greenData = [];
         $redData = [];
         foreach ($cardData as $call => $cardsReceived) {
@@ -164,9 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             $totalCardsOnHand += $cardsOnHand;
             $moneyReceived = isset($moneyData[$call]) ? $moneyData[$call] : 0;
             $mailInst = isset($operatorData[$call]) ? $operatorData[$call] : 'full';
-
-            // Debugging: Print each call and its card counts
-            //echo "Call: $call, CardsReceived: $cardsReceived, CardsMailed: $cardsMailed, CardsReturned: $cardsReturned, CardsOnHand: $cardsOnHand<br>";
 
             $entry = [
                 'Call' => $call,
@@ -181,7 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             }
         }
 
-        // Sort green and red data by Call column
         usort($greenData, function($a, $b) {
             return strcasecmp($a['Call'], $b['Call']);
         });
@@ -190,7 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             return strcasecmp($a['Call'], $b['Call']);
         });
 
-        // Split greenData into Monthly, Quarterly, and Full
         $monthlyData = array_filter($greenData, function($entry) {
             return $entry['MailInst'] === 'monthly';
         });

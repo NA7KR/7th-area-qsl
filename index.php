@@ -46,42 +46,53 @@ if (file_exists($headerPath)) {
 
     <h1 class="my-4 text-center">7th Area QSL Bureau Sorters</h1>
 
+    <table class="tg">
+        <thead>
+            <tr>
+                <th>Section</th>
+                <th>Name</th>
+                <th>Call</th>
+                <th>Email</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php
+            $sorters = [
+                ['A', 'Allen Lewey', 'K7ABL', 'alewey@msn.com'],
+                ['B', 'Kevin Bier', 'K7VI', 'ars.k7vi@gmail.com'],
+                ['C', 'Ron Vincent', 'WJ7R', 'wj7r@comcast.net'],
+                ['D', 'Steve Sterling', 'WA7DUH', 'wa7duh@gmail.com'],
+                ['E', 'Mike Willis', 'N6LO', 'N6LO7Buro@yahoo.com'],
+                ['F', 'Kevin and Carrigan Roberts', 'NA7KR', 'ars.na7kr@na7kr.us'],
+                ['G', 'Rick Smith', 'KT7G', 'zk1ttg@gmail.com'],
+                ['H', 'Howard Saxion', 'WX7HS', 'howardsaxion@mac.com'],
+                ['I', 'Jason Dinsmore', 'K7BPM', 'k7bpm@dinjas.com'],
+                ['J', 'Jim Fenstermaker', 'K9JF', 'k9jf@k9jf.com'],
+                ['K', 'Craig Cook', 'N7OR', 'qsl7thk@gmail.com'],
+                ['L', 'Casey Baldwin', 'WC7L', 'ARS.WC7L@gmail.com'],
+                ['M', 'Brian Phipps', 'W7BDP', 'brian.w7bdp@gmail.com'],
+                ['N', 'Frank Gruber', 'KB7NJV', 'gruberfrankr@comcast.net'],
+                ['O', 'Rick Aragon', 'NE7O', 'ne7o@yahoo.com'],
+                ['P', 'Russ Mickiewicz', 'N7QR', 'QSL7thP@yahoo.com'],
+                ['Q', 'Bernd Peters', 'KB7AK', 'bernd1peters@gmail.com'],
+                ['R', 'Marilyn Miller', 'K7YL', 'k7yl.08@gmail.com'],
+                ['S', 'Bob Norin', 'W7YAQ', 'w7yaq@arrl.net'],
+                ['T', 'John Gohndrone', 'N7TT', 'n7tt@tds.net'],
+                ['U', 'Delvin Bunton', 'NS7U', 'drbunton@comcast.net'],
+                ['V', 'Scott Rosenfeld', 'N7JI', 'ars.n7ji@gmail.com'],
+                ['W', 'Don Tucker', 'W7WLL', 'w7wll@arrl.net'],
+                ['X', 'Dave Tucker', 'KA6BIM', 'ka6bim@arrl.net'],
+                ['Y', 'Jim Cassidy', 'KI7Y', 'ki7y@arrl.net'],
+                ['Z', 'Al Rovner', 'K7AR', 'k7ar@comcast.net'],
+            ];
 
-<table class="tg">
-    <thead>
-        <tr>
-            <th>Section</th><th>Name</th><th>Call</th><th>Email</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr><td>A</td><td>Allen Lewey</td><td>K7ABL</td><td>alewey@msn.com</td></tr>
-        <tr><td>B</td><td>Kevin Bier</td><td>K7VI</td><td>ars.k7vi@gmail.com</td></tr>
-        <tr><td>C</td><td>Ron Vincent</td><td>WJ7R</td><td>wj7r@comcast.net</td></tr>
-        <tr><td>D</td><td>Steve Sterling</td><td>WA7DUH</td><td>wa7duh@gmail.com</td></tr>
-        <tr><td>E</td><td>Mike Willis</td><td>N6LO</td><td>N6LO7Buro@yahoo.com</td></tr>
-        <tr><td>F</td><td>Kevin and Carrigan Roberts</td><td>NA7KR</td><td>ars.na7kr@na7kr.us</td></tr>
-        <tr><td>G</td><td>Rick Smith</td><td>KT7G</td><td>zk1ttg@gmail.com</td></tr>
-        <tr><td>H</td><td>Howard Saxion</td><td>WX7HS</td><td>howardsaxion@mac.com</td></tr>
-        <tr><td>I</td><td>Jason Dinsmore</td><td>K7BPM</td><td>k7bpm@dinjas.com</td></tr>
-        <tr><td>J</td><td>Jim Fenstermaker</td><td>K9JF</td><td>k9jf@k9jf.com</td></tr>
-        <tr><td>K</td><td>Craig Cook</td><td>N7OR</td><td>qsl7thk@gmail.com</td></tr>
-        <tr><td>L</td><td>Casey Baldwin</td><td>WC7L</td><td>ARS.WC7L@gmail.com</td></tr>
-        <tr><td>M</td><td>Brian Phipps</td><td>W7BDP</td><td>brian.w7bdp@gmail.com</td></tr>
-        <tr><td>N</td><td>Frank Gruber</td><td>KB7NJV</td><td>gruberfrankr@comcast.net</td></tr>
-        <tr><td>O</td><td>Rick Aragon</td><td>NE7O</td><td>ne7o@yahoo.com</td></tr>
-        <tr><td>P</td><td>Russ Mickiewicz</td><td>N7QR</td><td>QSL7thP@yahoo.com</td></tr>
-        <tr><td>Q</td><td>Bernd Peters</td><td>KB7AK</td><td>bernd1peters@gmail.com</td></tr>
-        <tr><td>R</td><td>Marilyn Miller</td><td>K7YL</td><td>k7yl.08@gmail.com</td></tr>
-        <tr><td>S</td><td>Bob Norin</td><td>W7YAQ</td><td>w7yaq@arrl.net</td></tr>
-        <tr><td>T</td><td>John Gohndrone</td><td>N7TT</td><td>n7tt@tds.net</td></tr>
-        <tr><td>U</td><td>Delvin Bunton</td><td>NS7U</td><td>drbunton@comcast.net</td></tr>
-        <tr><td>V</td><td>Scott Rosenfeld</td><td>N7JI</td><td>ars.n7ji@gmail.com</td></tr>
-        <tr><td>W</td><td>Don Tucker</td><td>W7WLL</td><td>w7wll@arrl.net</td></tr>
-        <tr><td>X</td><td>Dave Tucker</td><td>KA6BIM</td><td>ka6bim@arrl.net</td></tr>
-        <tr><td>Y</td><td>Jim Cassidy</td><td>KI7Y</td><td>ki7y@arrl.net</td></tr>
-        <tr><td>Z</td><td>Al Rovner</td><td>K7AR</td><td>k7ar@comcast.net</td></tr>
-    </tbody>
-</table>
+            foreach ($sorters as $sorter) {
+                echo "<tr><td>{$sorter[0]}</td><td>{$sorter[1]}</td><td>{$sorter[2]}</td><td>{$sorter[3]}</td></tr>";
+            }
+            ?>
+        </tbody>
+    </table>
+</div>
 
 <?php
 // Include footer
