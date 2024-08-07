@@ -16,7 +16,6 @@ limitations under the License.
 */
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
-
 $title = "Total Cards Received";
 include("$root/backend/header.php");
 $config = include($root . '/config.php');
@@ -46,16 +45,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             $callIndex = array_search('Call', $headers);
             $cardsReceivedIndex = array_search('CardsReceived', $headers);
 
+            $aggregatedData = [];
+
             foreach ($rawData as $row) {
                 $columns = str_getcsv($row);
                 if ($callIndex !== false && $cardsReceivedIndex !== false) {
+                    $call = $columns[$callIndex];
                     $cardsReceived = (int) $columns[$cardsReceivedIndex];
-                    $data[] = [
-                        'Call' => $columns[$callIndex],
-                        'CardsReceived' => $cardsReceived
-                    ];
+                    if (isset($aggregatedData[$call])) {
+                        $aggregatedData[$call] += $cardsReceived;
+                    } else {
+                        $aggregatedData[$call] = $cardsReceived;
+                    }
                     $totalCardsOnHand += $cardsReceived;
                 }
+            }
+
+            foreach ($aggregatedData as $call => $cardsReceived) {
+                $data[] = [
+                    'Call' => $call,
+                    'CardsReceived' => $cardsReceived
+                ];
             }
 
             usort($data, function($a, $b) {
@@ -107,3 +117,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     <?php endif; ?>
 <?php
 include("$root/backend/footer.php");
+?>

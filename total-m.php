@@ -117,6 +117,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
 
             $entry = [
                 'Call' => $call,
+                'CardsReceived' => $cardsReceived,
+                'CardsMailed' => $cardsMailed,
+                'CardsReturned' => $cardsReturned,
                 'CardsOnHand' => $cardsOnHand,
                 'MailInst' => $mailInst
             ];
@@ -180,15 +183,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 <thead>
                     <tr>
                         <th>Call</th>
+                       
                         <th>Cards On Hand</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($monthlyData as $row): ?>
                         <tr>
-                            <td class="green">
-                                <?= htmlspecialchars($row['Call']) ?>
-                            </td>
+                            <td class="green"><?= htmlspecialchars($row['Call']) ?></td>
+                         
                             <td><?= htmlspecialchars($row['CardsOnHand']) ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -202,15 +205,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 <thead>
                     <tr>
                         <th>Call</th>
+                     
                         <th>Cards On Hand</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($quarterlyData as $row): ?>
                         <tr>
-                            <td class="green">
-                                <?= htmlspecialchars($row['Call']) ?>
-                            </td>
+                            <td class="green"><?= htmlspecialchars($row['Call']) ?></td>
+                        
                             <td><?= htmlspecialchars($row['CardsOnHand']) ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -224,15 +227,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 <thead>
                     <tr>
                         <th>Call</th>
+                      
                         <th>Cards On Hand</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($fullData as $row): ?>
                         <tr>
-                            <td class="green">
-                                <?= htmlspecialchars($row['Call']) ?>
-                            </td>
+                            <td class="green"><?= htmlspecialchars($row['Call']) ?></td>
+                           
                             <td><?= htmlspecialchars($row['CardsOnHand']) ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -246,15 +249,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 <thead>
                     <tr>
                         <th>Call</th>
+                     
                         <th>Cards On Hand</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($redData as $row): ?>
                         <tr>
-                            <td class="red">
-                                <?= htmlspecialchars($row['Call']) ?>
-                            </td>
+                            <td class="red"><?= htmlspecialchars($row['Call']) ?></td>
+                       
                             <td><?= htmlspecialchars($row['CardsOnHand']) ?></td>
                         </tr>
                     <?php endforeach; ?>
