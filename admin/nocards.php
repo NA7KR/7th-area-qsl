@@ -137,31 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             }
         }
 
-        // Fetch data from tbl_CardM
-        $rawCardMData = fetchData($dbPath, 'tbl_CardM');
-        $cardMData = [];
-        if (!empty($rawCardMData)) {
-            $headers = str_getcsv(array_shift($rawCardMData));
-            $callIndex = array_search('Call', $headers);
-            $postalCostIndex = array_search('PostalCost', $headers);
-            $otherCostIndex = array_search('OtherCost', $headers);
-
-            if ($callIndex === false || $postalCostIndex === false || $otherCostIndex === false) {
-                echo "<p>Debug: Missing required columns in tbl_CardM.</p>";
-                error_log("Debug: Missing required columns in tbl_CardM.");
-            } else {
-                foreach ($rawCardMData as $row) {
-                    $columns = str_getcsv($row);
-                    $call = $columns[$callIndex];
-                    $postalCost = (float)$columns[$postalCostIndex];
-                    $otherCost = (float)$columns[$otherCostIndex];
-                    if (!isset($cardMData[$call])) {
-                        $cardMData[$call] = 0;
-                    }
-                    $cardMData[$call] += $postalCost + $otherCost;
-                }
-            }
-        }
+       
 
         // Fetch data from tbl_Operator
         $rawOperatorData = fetchData($dbPath, 'tbl_Operator');

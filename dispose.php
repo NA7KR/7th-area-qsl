@@ -46,11 +46,16 @@ function parseCsvData($rawData) {
         foreach ($rawData as $row) {
             $columns = str_getcsv($row);
             if ($callIndex !== false && $cardsReturnedIndex !== false) {
+                $call = $columns[$callIndex];
                 $cardsReturned = (int)$columns[$cardsReturnedIndex];
-                $parsedData[] = [
-                    'Call' => $columns[$callIndex],
-                    'CardsReturned' => $cardsReturned
-                ];
+                if (isset($parsedData[$call])) {
+                    $parsedData[$call]['CardsReturned'] += $cardsReturned;
+                } else {
+                    $parsedData[$call] = [
+                        'Call' => $call,
+                        'CardsReturned' => $cardsReturned
+                    ];
+                }
                 $totalCardsReturned += $cardsReturned;
             }
         }
