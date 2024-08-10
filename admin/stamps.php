@@ -16,12 +16,14 @@ limitations under the License.
 */
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 $title = "Stamp Tracker";
 include("$root/backend/header.php");
 $config = include($root . '/config.php');
 
-$debug = false;
+$debug = true;
 
 // Function to fetch data from the specified table using mdbtools
 function fetchData($dbPath, $tableName) {

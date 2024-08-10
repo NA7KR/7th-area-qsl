@@ -68,18 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="center-content">
     <div class="login-container">
         <img src="/7thArea.png" alt="7th Area" />
-
-        <h2>Login</h2>
-        <?php if ($error): ?>
-            <div class="error-message"><?= htmlspecialchars($error) ?></div>
-        <?php endif; ?>
-        <form action="login.php" method="post">
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            <button type="submit">Login</button>
-        </form>
+        Welcome to Admin Area!!!
+      
     </div>
 </div>
 
