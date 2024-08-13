@@ -78,20 +78,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
 
 function parseData($rawData, $config, $debug = false) {
     $data = [];
+    $aggregatedData = [];
     $totals = [
         'stampsOnHand' => 0,
         'stampsUsed' => 0,
-        'costOfPostage' => 0,
-        'purchaseCost' => 0,
+        'costOfPostage' => '0',
+        'purchaseCost' => '0',
     ];
 
     $headers = str_getcsv(array_shift($rawData));
-    $idIndex = array_search('ID', $headers);
     $valueIndex = array_search('Value', $headers);
     $qtyPurchasedIndex = array_search('QTY Purchased', $headers);
     $qtyUsedIndex = array_search('QTY Used', $headers);
 
-    if ($idIndex === false || $valueIndex === false || $qtyPurchasedIndex === false || $qtyUsedIndex === false) {
+    if ($valueIndex === false || $qtyPurchasedIndex === false || $qtyUsedIndex === false) {
         echo "<p>Debug: Missing required columns in tbl_Stamps.</p>";
         error_log("Debug: Missing required columns in tbl_Stamps.");
         return [$data, $totals];
@@ -99,44 +99,48 @@ function parseData($rawData, $config, $debug = false) {
 
     foreach ($rawData as $row) {
         $columns = str_getcsv($row);
-        $value = $columns[$valueIndex];
-        $value2 = $columns[$valueIndex];
-        $qtyPurchased = (int)$columns[$qtyPurchasedIndex];
-        $qtyUsed = (int)$columns[$qtyUsedIndex];
+        $value = trim((string) $columns[$valueIndex]);  // Treat value as a string
+        $qtyPurchased = (int) $columns[$qtyPurchasedIndex];
+        $qtyUsed = (int) $columns[$qtyUsedIndex];
 
-        if (isset($config['stamps'][$value])) {
-            $value = $config['stamps'][$value];
+        // If the value exists in the config, use the config value for calculations
+        $calculationValue = isset($config['stamps'][$value]) ? $config['stamps'][$value] : $value;
+
+        if (!isset($aggregatedData[$value])) {
+            $aggregatedData[$value] = [
+                'Value' => $value,
+                'Value2' => $value, // Ensure Value2 is always set
+                'QTY Purchased' => 0,
+                'QTY Used' => 0,
+                'Stamps On Hand' => 0,
+                'Cost of Postage' => '0',
+                'Total' => '0',
+            ];
         }
 
-        $value = (float) str_replace(',', '.', $value);
+        $aggregatedData[$value]['QTY Purchased'] += $qtyPurchased;
+        $aggregatedData[$value]['QTY Used'] += $qtyUsed;
+        $aggregatedData[$value]['Stamps On Hand'] = $aggregatedData[$value]['QTY Purchased'] - $aggregatedData[$value]['QTY Used'];
 
-        $stampsOnHand = $qtyPurchased - $qtyUsed;
-        $costOfPostage = $qtyUsed * $value;
-        $total = $qtyPurchased * $value;
+        // Calculate Cost of Postage and Total safely using the config value
+        $costOfPostage = bcmul((string)$qtyUsed, is_numeric($calculationValue) ? $calculationValue : '0', 2);
+        $aggregatedData[$value]['Cost of Postage'] = bcadd($aggregatedData[$value]['Cost of Postage'], $costOfPostage, 2);
 
-        $data[] = [
-            'Value' => $value,
-            'Value2' => $value2,
-            'QTY Purchased' => $qtyPurchased,
-            'QTY Used' => $qtyUsed,
-            'Stamps On Hand' => $stampsOnHand,
-            'Cost of Postage' => $costOfPostage,
-            'Total' => $total,
-        ];
+        $total = bcmul((string)$qtyPurchased, is_numeric($calculationValue) ? $calculationValue : '0', 2);
+        $aggregatedData[$value]['Total'] = bcadd($aggregatedData[$value]['Total'], $total, 2);
 
-        $totals['stampsOnHand'] += $stampsOnHand;
+        // Update totals
+        $totals['stampsOnHand'] += $aggregatedData[$value]['Stamps On Hand'];
         $totals['stampsUsed'] += $qtyUsed;
-        $totals['costOfPostage'] += $costOfPostage;
-        $totals['purchaseCost'] += $total;
-
-        if ($debug) {
-            echo "<p>Debug: Value: $value, Value2: $value2, QTY Purchased: $qtyPurchased, QTY Used: $qtyUsed, Stamps On Hand: $stampsOnHand, Cost of Postage: $costOfPostage, Total: $total</p>";
-            error_log("Debug: Value: $value, Value2: $value2, QTY Purchased: $qtyPurchased, QTY Used: $qtyUsed, Stamps On Hand: $stampsOnHand, Cost of Postage: $costOfPostage, Total: $total");
-        }
+        $totals['costOfPostage'] = bcadd($totals['costOfPostage'], $costOfPostage, 2);
+        $totals['purchaseCost'] = bcadd($totals['purchaseCost'], $total, 2);
     }
+
+    $data = array_values($aggregatedData);
 
     return [$data, $totals];
 }
+
 
 if ($selectedLetter !== null) {
     $dbPath = $config['sections'][$selectedLetter];
