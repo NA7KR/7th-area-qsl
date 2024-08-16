@@ -88,12 +88,12 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig) {
             My name is Kevin Roberts NA7KR. I am the ARRL 7th district QSL sorter for the F section.<br>
             I am writing you today because you have incoming DX card(s) in the incoming QSL bureau. Cards on hand: $cardsOnHand.<br>
             If you would like to receive these cards, please go to <a href='https://wvdxc.org/pay-online-for-credits/'>pay online for credits</a> or use the mail-in form.<br>
-            Please respond within 30 days, or else your account will be marked ‘discard all incoming bureau cards’.<br><br>
+            Please respond within 30 days, or else your account will be marked discard all incoming bureau cards.<br><br>
             If you would NOT like to receive incoming bureau cards, please let me know.<br><br>
             If you have any questions or concerns, please reply to this email or email me at ARS.kevin@na7kr.us.<br><br>
             You can read more about the 7th district QSL bureau at <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.
         ";
-        $mail->addEmbeddedImage('7thArea.png', '7thArea');
+        $mail->addEmbeddedImage('../7thArea.png', '7thArea');
 
         $mail->send();
         echo "Message has been sent to $call ($to)<br>";
@@ -323,7 +323,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
     </style>
 
-    <img src= "/7thArea.png"   alt="7th Area" />
+    <img src= "../7thArea.png"   alt="7th Area" />
     <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
     <form method="POST">
         <label for="letter">Select a Section:</label>
@@ -456,7 +456,7 @@ Hello <?= htmlspecialchars($row['Call']) ?>,
 My name is Kevin Roberts NA7KR. I am the ARRL 7th district QSL sorter for the F section.
 I am writing you today because you have incoming DX card(s) in the incoming QSL bureau. Cards on hand: <?= htmlspecialchars($row['CardsOnHand']) ?>.
 If you would like to receive these cards, please go to https://wvdxc.org/pay-online-for-credits/ and pay for online credits or use the mail-in form.
-Please respond within 30 days, or else your account will be marked ‘discard all incoming bureau cards’.
+Please respond within 30 days, or else your account will be marked discard all incoming bureau cards.
 
 If you would NOT like to receive incoming bureau cards, please let me know.
 
