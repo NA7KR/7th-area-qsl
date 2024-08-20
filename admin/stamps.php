@@ -14,7 +14,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -26,29 +25,66 @@ $config = include($root . '/config.php');
 $debug = true;
 
 // Function to fetch data from the specified table using mdbtools
-function fetchData($dbPath, $tableName) {
+function fetchData($dbPath, $tableName, $startDate = null, $endDate = null, $dateColumn = null) {
+    // Verify that the database path exists
+    if (!file_exists($dbPath)) {
+        echo "Error: Database file not found at path: $dbPath";
+        return [];
+    }
+
+    // Construct the basic command for MDBTools
     $command = "mdb-export '$dbPath' '$tableName'";
+
+    // Apply date filtering using the specified date column, only if both dates are provided
+    if (!empty($startDate) && !empty($endDate) && !empty($dateColumn)) {
+        $command .= " | awk -F, '(\$$dateColumn >= \"$startDate\" && \$$dateColumn <= \"ce\")'";
+    }
+
+    // Debug: Print the exact command being executed
+    if ($GLOBALS['debug']) {
+        echo "<p>Debug: Executing command: $command</p>";
+        echo "<p>Debug: Executing command: $$dateColumn</p>";
+    }
+
+    // Execute the command and capture the output
     $output = [];
     $return_var = 0;
     exec($command, $output, $return_var);
+
+    // Debug: Print the output of the command
+    if ($GLOBALS['debug']) {
+        echo "<p>Debug: Command output:</p>";
+        echo "<pre>" . implode("\n", $output) . "</pre>";
+    }
+
+    // Check if the command failed
     if ($return_var !== 0) {
-        echo "Error: Could not retrieve data from $tableName.";
+        echo "Error: Could not retrieve data from $tableName. Command executed: $command";
         return [];
     }
+
+    // Check if the output is empty
+    if (empty($output)) {
+        echo "Error: No data retrieved from $tableName. It might be an empty table or an issue with the query.";
+        return [];
+    }
+
     return $output;
 }
 
-// Handle form submission
 $selectedLetter = null;
 $mailedData = [];
 $totalCardsMailed = 0;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     $selectedLetter = $_POST['letter'];
+    $startDate = $_POST['startDate'] ?? null;
+    $endDate = $_POST['endDate'] ?? null;
     if (isset($config['sections'][$selectedLetter])) {
         $dbPath = $config['sections'][$selectedLetter];
 
-        // Fetch data from tbl_CardM
-        $rawMailedData = fetchData($dbPath, 'tbl_CardM');
+        // Fetch data from tbl_CardM with DateMailed filtering
+        $rawMailedData = fetchData($dbPath, 'tbl_CardM', $startDate, $endDate, 'DateMailed');
         if (!empty($rawMailedData)) {
             $headers = str_getcsv(array_shift($rawMailedData));
             $callIndex = array_search('Call', $headers);
@@ -66,7 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 }
             }
 
-            // Sort mailed data by Call column
             usort($mailedData, function($a, $b) {
                 return strcasecmp($a['Call'], $b['Call']);
             });
@@ -86,7 +121,19 @@ function parseData($rawData, $config, $debug = false) {
         'purchaseCost' => '0',
     ];
 
+    if (empty($rawData) || !is_array($rawData)) {
+        echo "<p>Debug: No data to process in tbl_Stamps.</p>";
+        error_log("Debug: No data to process in tbl_Stamps.");
+        return [$data, $totals];
+    }
+
     $headers = str_getcsv(array_shift($rawData));
+    if ($headers === false) {
+        echo "<p>Debug: Failed to parse headers in tbl_Stamps.</p>";
+        error_log("Debug: Failed to parse headers in tbl_Stamps.");
+        return [$data, $totals];
+    }
+
     $valueIndex = array_search('Value', $headers);
     $qtyPurchasedIndex = array_search('QTY Purchased', $headers);
     $qtyUsedIndex = array_search('QTY Used', $headers);
@@ -99,17 +146,22 @@ function parseData($rawData, $config, $debug = false) {
 
     foreach ($rawData as $row) {
         $columns = str_getcsv($row);
-        $value = trim((string) $columns[$valueIndex]);  // Treat value as a string
+        if ($columns === false) {
+            echo "<p>Debug: Failed to parse a row in tbl_Stamps.</p>";
+            error_log("Debug: Failed to parse a row in tbl_Stamps.");
+            continue;
+        }
+
+        $value = trim((string) $columns[$valueIndex]);
         $qtyPurchased = (int) $columns[$qtyPurchasedIndex];
         $qtyUsed = (int) $columns[$qtyUsedIndex];
 
-        // If the value exists in the config, use the config value for calculations
         $calculationValue = isset($config['stamps'][$value]) ? $config['stamps'][$value] : $value;
 
         if (!isset($aggregatedData[$value])) {
             $aggregatedData[$value] = [
                 'Value' => $value,
-                'Value2' => $value, // Ensure Value2 is always set
+                'Value2' => $value,
                 'QTY Purchased' => 0,
                 'QTY Used' => 0,
                 'Stamps On Hand' => 0,
@@ -122,14 +174,12 @@ function parseData($rawData, $config, $debug = false) {
         $aggregatedData[$value]['QTY Used'] += $qtyUsed;
         $aggregatedData[$value]['Stamps On Hand'] = $aggregatedData[$value]['QTY Purchased'] - $aggregatedData[$value]['QTY Used'];
 
-        // Calculate Cost of Postage and Total safely using the config value
         $costOfPostage = bcmul((string)$qtyUsed, is_numeric($calculationValue) ? $calculationValue : '0', 2);
         $aggregatedData[$value]['Cost of Postage'] = bcadd($aggregatedData[$value]['Cost of Postage'], $costOfPostage, 2);
 
         $total = bcmul((string)$qtyPurchased, is_numeric($calculationValue) ? $calculationValue : '0', 2);
         $aggregatedData[$value]['Total'] = bcadd($aggregatedData[$value]['Total'], $total, 2);
 
-        // Update totals
         $totals['stampsOnHand'] += $aggregatedData[$value]['Stamps On Hand'];
         $totals['stampsUsed'] += $qtyUsed;
         $totals['costOfPostage'] = bcadd($totals['costOfPostage'], $costOfPostage, 2);
@@ -141,10 +191,10 @@ function parseData($rawData, $config, $debug = false) {
     return [$data, $totals];
 }
 
-
 if ($selectedLetter !== null) {
     $dbPath = $config['sections'][$selectedLetter];
-    $rawStampData = fetchData($dbPath, 'tbl_Stamps', $debug);
+    // Fetch data from tbl_Stamps with DateAdded filtering
+    $rawStampData = fetchData($dbPath, 'tbl_Stamps', $_POST['startDate'], $_POST['endDate'], 'DateAdded');
     list($data, $totals) = parseData($rawStampData, $config, $debug);
 
     usort($data, function($a, $b) {
@@ -162,8 +212,8 @@ if ($selectedLetter !== null) {
         error_log("Debug: Total Purchase Cost: {$totals['purchaseCost']}");
     }
 }
-
 ?>
+
 <div class="center-content">
     <img src="/7thArea.png" alt="7th Area" />
 
@@ -178,6 +228,18 @@ if ($selectedLetter !== null) {
                 </option>
             <?php endforeach; ?>
         </select>
+        
+        <label for="dateFilterCheckbox">Enable Date Filter:</label>
+        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()">
+
+        <div id="dateFilters" style="display: none;">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" name="startDate">
+            
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" name="endDate">
+        </div>
+
         <button type="submit">Submit</button>
     </form>
 
@@ -216,6 +278,15 @@ if ($selectedLetter !== null) {
         <p>No data found or there was an error retrieving the data.</p>
     <?php endif; ?>
 </div>
+
+<script>
+function toggleDateFilters() {
+    var dateFilterCheckbox = document.getElementById('dateFilterCheckbox');
+    var dateFilters = document.getElementById('dateFilters');
+    dateFilters.style.display = dateFilterCheckbox.checked ? 'block' : 'none';
+}
+</script>
+
 <?php
 include("$root/backend/footer.php");
 ?>
