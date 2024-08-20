@@ -38,7 +38,8 @@ unset($_SESSION['submittedData']); // Clear the session data after use
             <strong>Callsign:</strong> <?= htmlspecialchars($row['Call']) ?><br>
             <?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?><br>
             <?= htmlspecialchars($row['Address']) ?><br>
-            <?= htmlspecialchars($row['City'] . ', ' . $row['State'] . ' ' . $row['Zip']) ?><br><br>
+            <?= htmlspecialchars($row['City'] ) ?><br>
+            <?= htmlspecialchars($row['State'] . ' ' . $row['Zip']) ?><br><br>
         </div>
     <?php endforeach; ?>
 
