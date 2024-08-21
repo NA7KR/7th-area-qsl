@@ -35,11 +35,11 @@ unset($_SESSION['submittedData']); // Clear the session data after use
 <body>
     <?php foreach ($submittedData as $row): ?>
         <div class="label">
-            <strong>Callsign:</strong> <?= htmlspecialchars($row['Call']) ?><br>
+            <strong> <?= htmlspecialchars($row['Call'])?></strong><br>
             <?= htmlspecialchars($row['FirstName'] . ' ' . $row['LastName']) ?><br>
             <?= htmlspecialchars($row['Address']) ?><br>
             <?= htmlspecialchars($row['City'] ) ?><br>
-            <?= htmlspecialchars($row['State'] . ' ' . $row['Zip']) ?><br><br>
+            <?= htmlspecialchars($row['State'] . ' ' . $row['Zip']) ?>
         </div>
     <?php endforeach; ?>
 
