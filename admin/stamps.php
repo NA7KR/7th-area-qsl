@@ -22,7 +22,7 @@ $title = "Stamp Tracker";
 include("$root/backend/header.php");
 $config = include($root . '/config.php');
 
-$debug = true;
+$debug = false;
 
 // Function to fetch data from the specified table using mdbtools
 function fetchData($dbPath, $tableName, $startDate = null, $endDate = null, $dateColumn = null) {
@@ -31,19 +31,22 @@ function fetchData($dbPath, $tableName, $startDate = null, $endDate = null, $dat
         echo "Error: Database file not found at path: $dbPath";
         return [];
     }
+    $startDate = $startDate ? date("m/d/y", strtotime($startDate)) : null;
+    $endDate = $endDate ? date("m/d/y", strtotime($endDate)) : null;
+    $dateFieldNumber = 6; // Adjust if necessary
 
     // Construct the basic command for MDBTools
     $command = "mdb-export '$dbPath' '$tableName'";
 
     // Apply date filtering using the specified date column, only if both dates are provided
     if (!empty($startDate) && !empty($endDate) && !empty($dateColumn)) {
-        $command .= " | awk -F, '(\$$dateColumn >= \"$startDate\" && \$$dateColumn <= \"ce\")'";
+        $command .= " | awk -F, 'BEGIN {OFS=\",\"} { dateField=substr(\$$dateFieldNumber, 2, 8); if (dateField >= \"$startDate\" && dateField <= \"$endDate\") print }'";
     }
 
     // Debug: Print the exact command being executed
     if ($GLOBALS['debug']) {
         echo "<p>Debug: Executing command: $command</p>";
-        echo "<p>Debug: Executing command: $$dateColumn</p>";
+        echo "<p>Debug: Date Column: $dateColumn</p>";
     }
 
     // Execute the command and capture the output
@@ -134,9 +137,10 @@ function parseData($rawData, $config, $debug = false) {
         return [$data, $totals];
     }
 
-    $valueIndex = array_search('Value', $headers);
-    $qtyPurchasedIndex = array_search('QTY Purchased', $headers);
-    $qtyUsedIndex = array_search('QTY Used', $headers);
+    // Adjust these variable names if the column names in your database are different
+    $valueIndex = 1; // Column where stamp value is stored
+    $qtyPurchasedIndex = 2; // Column for quantity purchased
+    $qtyUsedIndex = 3; // Column for quantity used
 
     if ($valueIndex === false || $qtyPurchasedIndex === false || $qtyUsedIndex === false) {
         echo "<p>Debug: Missing required columns in tbl_Stamps.</p>";
@@ -230,46 +234,56 @@ if ($selectedLetter !== null) {
         </select>
         
         <label for="dateFilterCheckbox">Enable Date Filter:</label>
-        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()">
+        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()" <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
 
-        <div id="dateFilters" style="display: none;">
+        <div id="dateFilters" style="display: <?= isset($_POST['dateFilterCheckbox']) ? 'block' : 'none' ?>;">
             <label for="startDate">Start Date:</label>
-            <input type="date" id="startDate" name="startDate">
+            <input type="date" id="startDate" name="startDate" value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
             
             <label for="endDate">End Date:</label>
-            <input type="date" id="endDate" name="endDate">
+            <input type="date" id="endDate" name="endDate" value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
         </div>
 
         <button type="submit">Submit</button>
     </form>
 
     <h2>Stamp Summary</h2>
-    <p>Total Stamps On Hand: <?= htmlspecialchars($totals['stampsOnHand'] ?? 0) ?></p>
+    <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
+        <p>Total Stamps On Hand: <?= htmlspecialchars($totals['stampsOnHand'] ?? 0) ?></p>
+        <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost'] ?? 0) ?></p> 
+    <?php endif; ?>
     <p>Total Stamps Used: <?= htmlspecialchars($totals['stampsUsed'] ?? 0) ?></p>
     <p>Total Cost of Postage Used: $<?= htmlspecialchars($totals['costOfPostage'] ?? 0) ?></p>
-    <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost'] ?? 0) ?></p> 
 
     <?php if (!empty($data)): ?>
         <table>
             <thead>
                 <tr>
                     <th>Value Of Stamps</th>
-                    <th>QTY Purchased</th>
+                    <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
+                        <th>QTY Purchased</th>
+                    <?php endif; ?>
                     <th>QTY Used</th>
-                    <th>Stamps On Hand</th>
+                    <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
+                        <th>Stamps On Hand</th>
+                        <th>Total Purchased</th>
+                    <?php endif; ?>
                     <th>Cost of Postage</th>
-                    <th>Total Purchased</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($data as $row): ?>
                     <tr>
                         <td><?= htmlspecialchars($row['Value2']) ?></td>
-                        <td><?= htmlspecialchars($row['QTY Purchased']) ?></td>
+                        <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
+                            <td><?= htmlspecialchars($row['QTY Purchased']) ?></td>
+                        <?php endif; ?>
                         <td><?= htmlspecialchars($row['QTY Used']) ?></td>
-                        <td><?= htmlspecialchars($row['Stamps On Hand']) ?></td>
+                        <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
+                            <td><?= htmlspecialchars($row['Stamps On Hand']) ?></td>
+                            <td><?= htmlspecialchars($row['Total']) ?></td>
+                        <?php endif; ?>
                         <td><?= htmlspecialchars($row['Cost of Postage']) ?></td>
-                        <td><?= htmlspecialchars($row['Total']) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
