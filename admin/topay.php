@@ -25,6 +25,7 @@ $emailConfig = $config['email'];
 $selectedLetter = null;
 $filterEmail = false;
 $filterNoEmail = false;
+$printSelected = false; // Initialize $printSelected
 $cardData = [];
 $mailedData = [];
 $returnedData = [];
@@ -102,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     $selectedLetter = $_POST['letter'];
     $filterEmail = isset($_POST['filter_email']);
     $filterNoEmail = isset($_POST['filter_no_email']);
-    $printSelected = isset($_POST['print_selected']);
+    $printSelected = isset($_POST['print_selected']); // Set $printSelected if print button is clicked
 
     if (isset($config['sections'][$selectedLetter])) {
         $dbPath = $config['sections'][$selectedLetter];
@@ -271,19 +272,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             return strcasecmp($a['Call'], $b['Call']);
         });
 
+        if (isset($_POST['email_selected']) && !empty($_POST['selected_calls'])) {
+            foreach ($_POST['selected_calls'] as $selectedCall) {
+                foreach ($redData as $data) {
+                    if ($data['Call'] === $selectedCall && !empty($data['Email'])) {
+                        sendEmail($data['Email'], $data['Call'], $data['CardsOnHand'], $emailConfig);
+                    }
+                }
+            }
+        }
+
         if ($printSelected && !empty($_POST['selected_calls'])) {
             $selectedCalls = $_POST['selected_calls'];
             $submittedData = array_filter($redData, function($entry) use ($selectedCalls) {
                 return in_array($entry['Call'], $selectedCalls);
             });
-
-            // Send emails only if "print_selected" is not set (DO NOT CHANGE PRINT OPTION)
-            foreach ($submittedData as $row) {
-                if (!empty($row['Email'])) {
-                    sendEmail($row['Email'], $row['Call'], $row['CardsOnHand'], $emailConfig);
-                }
-            }
-
             $_SESSION['submittedData'] = $submittedData;
             header('Location: print_labels.php');
             exit;
@@ -382,6 +385,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            <button type="submit" name="email_selected">Email Selected</button>
             <button type="submit" name="print_selected">Print Selected</button>
         </form>
     <?php elseif ($selectedLetter !== null): ?>
