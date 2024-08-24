@@ -1,19 +1,4 @@
 <?php
-/*
-Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 session_start();
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
@@ -26,11 +11,92 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
+ini_set('error_reporting', E_ALL);
+ini_set('display_errors', '1');
+include_once("$root/backend/Exception.php");
+include_once("$root/backend/PHPMailer.php");
+include_once("$root/backend/SMTP.php");
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
+$emailConfig = $config['email'];
+
 $selectedLetter = null;
 $filterEmail = false;
 $filterNoEmail = false;
-$redData = [];
+$cardData = [];
+$mailedData = [];
+$returnedData = [];
+$moneyReceivedData = [];
+$totalCostData = [];
+$operatorData = [];
+$totalCardsReceived = 0;
+$totalCardsMailed = 0;
+$totalCardsReturned = 0;
+$totalCardsOnHand = 0;
 $submittedData = [];
+
+function fetchData($dbPath, $tableName) {
+    $command = "mdb-export '$dbPath' '$tableName'";
+    $output = [];
+    $return_var = 0;
+    exec($command, $output, $return_var);
+    if ($return_var !== 0) {
+        echo "Error: Could not retrieve data from $tableName.";
+        return [];
+    }
+    return $output;
+}
+
+function normalizeHeaders($headers) {
+    return array_map('trim', $headers);
+}
+
+function sanitizeEmail($email) {
+    return preg_replace('/#mailto:[^#]+#/', '', $email);
+}
+
+function sendEmail($to, $call, $cardsOnHand, $emailConfig) {
+    $mail = new PHPMailer(true);
+    $debugEmail = 'kevin@na7kr.us';
+    if ($emailConfig['testing']) {
+        $to = $debugEmail;
+        echo "Testing enabled: Email will be sent to debug address ($debugEmail) instead.<br>";
+    }
+   
+    try {
+        $mail->SMTPDebug = $emailConfig['debugging'] ? SMTP::DEBUG_SERVER : SMTP::DEBUG_OFF;
+        $mail->isSMTP();
+        $mail->Host = $emailConfig['server'];
+        $mail->SMTPAuth = true;
+        $mail->Username = $emailConfig['sender'];
+        $mail->Password = $emailConfig['password'];
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        $mail->Port = $emailConfig['port'];
+        $mail->setFrom('ars.kevin@na7kr.us', 'Kevin Roberts NA7KR');
+        $mail->addAddress($to);
+        $mail->isHTML($emailConfig['send_html']);
+        $mail->Subject = 'Incoming DX Card(s) Notification';
+        $mail->Body = "
+            <img src='cid:7thArea' alt='7th Area' /><br>
+            Hello $call,<br><br>
+            My name is Kevin Roberts NA7KR. I am the ARRL 7th district QSL sorter for the F section.<br>
+            I am writing you today because you have incoming DX card(s) in the incoming QSL bureau. Cards on hand: $cardsOnHand.<br>
+            If you would like to receive these cards, please go to <a href='https://wvdxc.org/pay-online-for-credits/'>pay online for credits</a> or use the mail-in form.<br>
+            Please respond within 30 days, or else your account will be marked discard all incoming bureau cards.<br><br>
+            If you would NOT like to receive incoming bureau cards, please let me know.<br><br>
+            If you have any questions or concerns, please reply to this email or email me at ARS.kevin@na7kr.us.<br><br>
+            You can read more about the 7th district QSL bureau at <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.
+        ";
+        $mail->addEmbeddedImage('../7thArea.png', '7thArea');
+
+        $mail->send();
+        echo "Message has been sent to $call ($to)<br>";
+    } catch (Exception $e) {
+        echo "Message could not be sent to $call ($to). Mailer Error: {$mail->ErrorInfo}<br>";
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     $selectedLetter = $_POST['letter'];
@@ -206,10 +272,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         });
 
         if ($printSelected && !empty($_POST['selected_calls'])) {
-            $selectedCalls = $_POST['selected_calls']; // Capture selected calls outside closure
+            $selectedCalls = $_POST['selected_calls'];
             $submittedData = array_filter($redData, function($entry) use ($selectedCalls) {
                 return in_array($entry['Call'], $selectedCalls);
             });
+
+            // Send emails only if "print_selected" is not set (DO NOT CHANGE PRINT OPTION)
+            foreach ($submittedData as $row) {
+                if (!empty($row['Email'])) {
+                    sendEmail($row['Email'], $row['Call'], $row['CardsOnHand'], $emailConfig);
+                }
+            }
+
             $_SESSION['submittedData'] = $submittedData;
             header('Location: print_labels.php');
             exit;
@@ -217,26 +291,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     } else {
         echo "Error: Invalid database configuration.";
     }
-}
-
-function fetchData($dbPath, $tableName) {
-    $command = "mdb-export '$dbPath' '$tableName'";
-    $output = [];
-    $return_var = 0;
-    exec($command, $output, $return_var);
-    if ($return_var !== 0) {
-        echo "Error: Could not retrieve data from $tableName.";
-        return [];
-    }
-    return $output;
-}
-
-function normalizeHeaders($headers) {
-    return array_map('trim', $headers);
-}
-
-function sanitizeEmail($email) {
-    return preg_replace('/#mailto:[^#]+#/', '', $email);
 }
 ?>
 

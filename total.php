@@ -14,14 +14,23 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-$root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
+$root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Total Cards Received";
 include("$root/backend/header.php");
 $config = include($root . '/config.php');
 
-function fetchData($dbPath, $tableName) {
-    $command = "mdb-export '$dbPath' '$tableName'";
+function fetchData($dbPath, $tableName, $startDate = null, $endDate = null) {
+    $dateFilter = '';
+    if ($startDate && $endDate) {
+        $dateFilter = " WHERE `DateReceived` BETWEEN '$startDate' AND '$endDate'";
+    } elseif ($startDate) {
+        $dateFilter = " WHERE `DateReceived` >= '$startDate'";
+    } elseif ($endDate) {
+        $dateFilter = " WHERE `DateReceived` <= '$endDate'";
+    }
+
+    $command = "mdb-export '$dbPath' '$tableName'" . $dateFilter;
     $output = [];
     $return_var = 0;
     exec($command, $output, $return_var);
@@ -35,11 +44,15 @@ function fetchData($dbPath, $tableName) {
 $selectedLetter = null;
 $data = [];
 $totalCardsOnHand = 0;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     $selectedLetter = $_POST['letter'];
+    $startDate = $_POST['startDate'] ?? null;
+    $endDate = $_POST['endDate'] ?? null;
+
     if (isset($config['sections'][$selectedLetter])) {
         $dbPath = $config['sections'][$selectedLetter];
-        $rawData = fetchData($dbPath, 'tbl_CardRec');
+        $rawData = fetchData($dbPath, 'tbl_CardRec', $startDate, $endDate);
         if (!empty($rawData)) {
             $headers = str_getcsv(array_shift($rawData));
             $callIndex = array_search('Call', $headers);
@@ -77,10 +90,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     }
 }
 ?>
-    <div class="center-content">
-        <img src="/7thArea.png" alt="7th Area" />
-
-        <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
+<div class="center-content">
+    <img src="/7thArea.png" alt="7th Area" />
+    <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
     <form method="POST">
         <label for="letter">Select a Section:</label>
         <select name="letter" id="letter">
@@ -90,6 +102,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 </option>
             <?php endforeach; ?>
         </select>
+        
+        <label for="dateFilterCheckbox">Enable Date Filter:</label>
+        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()" <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
+
+        <div id="dateFilters" style="display: <?= isset($_POST['dateFilterCheckbox']) ? 'block' : 'none' ?>;">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" name="startDate" value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
+            
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" name="endDate" value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
+        </div>
+        
         <button type="submit">Submit</button>
     </form>
 
@@ -115,6 +139,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     <?php elseif ($selectedLetter !== null): ?>
         <p>No data found or there was an error retrieving the data.</p>
     <?php endif; ?>
+</div>
+
+<script>
+function toggleDateFilters() {
+    var checkbox = document.getElementById('dateFilterCheckbox');
+    var dateFilters = document.getElementById('dateFilters');
+    dateFilters.style.display = checkbox.checked ? 'block' : 'none';
+}
+</script>
+
 <?php
 include("$root/backend/footer.php");
 ?>
