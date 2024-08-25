@@ -1,47 +1,50 @@
 <?php
-/*
-Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Cards Mailed Out";
+$debug = false;
 
 include("$root/backend/header.php");
 
 $config = include($root . '/config.php');
 
-function fetchData($dbPath, $tableName, $startDate = null, $endDate = null, $enableDateFilter = false) {
+function fetchData($dbPath, $tableName, $startDate = null, $endDate = null, $enableDateFilter = false, $debug = false) {
     $escapedDbPath = escapeshellarg($dbPath);
     $escapedTableName = escapeshellarg($tableName);
     
-    // Build the command with the date filter if enabled
+    // Build the command
     $command = "mdb-export $escapedDbPath $escapedTableName";
     if ($enableDateFilter && $startDate && $endDate) {
-        $command .= " | awk -F',' '{split(\$4, date_time, \" \"); date = date_time[1]; gsub(/\"/, \"\", date); if (date >= \"$startDate\" && date <= \"$endDate\") print \$0}'";
+        $awkCommand = "awk -F',' 'NR==1 {print \$0; next} "; // Print header row
+        $awkCommand .= "{";
+        $awkCommand .= "split(\$6, date_time, \" \");";
+        $awkCommand .= "date = date_time[1];";
+        $awkCommand .= "gsub(/\"/, \"\", date);";
+        $awkCommand .= "split(date, parts, \"/\");";
+        $awkCommand .= "month = parts[1];";
+        $awkCommand .= "day = parts[2];";
+        $awkCommand .= "year = parts[3];";
+        $awkCommand .= "formattedDate = year month day;";
+        $awkCommand .= "if (formattedDate >= \"" . date("ymd", strtotime($startDate)) . "\" && formattedDate <= \"" . date("ymd", strtotime($endDate)) . "\")";
+        $awkCommand .= "print \$0;";
+        $awkCommand .= "}'";
+        $command .= " | " . $awkCommand;
     }
     
+    if ($debug) {
+        echo "Debug: Command: " . htmlspecialchars($command) . "<br>";
+    }
+
     $output = [];
     $return_var = 0;
     exec($command, $output, $return_var);
-    
+
     if ($return_var !== 0) {
         echo "Error: Could not retrieve data from $tableName.";
         return [];
     }
     return $output;
 }
+
 
 function parseMailedData($rawData) {
     if (empty($rawData)) {
@@ -80,13 +83,13 @@ function parseMailedData($rawData) {
     return [$mailedData, $totalCardsMailed];
 }
 
-function handleFormSubmission($config) {
+function handleFormSubmission($config, $debug) {
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         return [null, [], 0];
     }
 
     $selectedLetter = $_POST['letter'] ?? null;
-    $enableDateFilter = isset($_POST['enableDateFilter']);
+    $enableDateFilter = isset($_POST['dateFilterCheckbox']);
     $startDate = $_POST['startDate'] ?? null;
     $endDate = $_POST['endDate'] ?? null;
 
@@ -96,11 +99,11 @@ function handleFormSubmission($config) {
     }
 
     $dbPath = $config['sections'][$selectedLetter];
-    $rawMailedData = fetchData($dbPath, 'tbl_CardM', $startDate, $endDate, $enableDateFilter);
+    $rawMailedData = fetchData($dbPath, 'tbl_CardM', $startDate, $endDate, $enableDateFilter, $debug);
     return [$selectedLetter, parseMailedData($rawMailedData)];
 }
 
-list($selectedLetter, $parsedData) = handleFormSubmission($config);
+list($selectedLetter, $parsedData) = handleFormSubmission($config, $debug);
 $mailedData = $parsedData[0];
 $totalCardsMailed = $parsedData[1];
 ?>
@@ -120,16 +123,15 @@ $totalCardsMailed = $parsedData[1];
         </select>
 
         <label for="dateFilterCheckbox">Enable Date Filter:</label>
-            <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()" <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
+        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()" <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
 
-            <div id="dateFilters" style="display: <?= isset($_POST['dateFilterCheckbox']) ? 'block' : 'none' ?>;">
-                <label for="startDate">Start Date:</label>
-                <input type="date" id="startDate" name="startDate" value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
-                
-                <label for="endDate">End Date:</label>
-                <input type="date" id="endDate" name="endDate" value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
-            </div>
+        <div id="dateFilters" style="display: <?= isset($_POST['dateFilterCheckbox']) ? 'block' : 'none' ?>;">
+            <label for="startDate">Start Date:</label>
+            <input type="date" id="startDate" name="startDate" value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
             
+            <label for="endDate">End Date:</label>
+            <input type="date" id="endDate" name="endDate" value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
+        </div>
 
         <button type="submit">Submit</button>
     </form>
@@ -158,12 +160,13 @@ $totalCardsMailed = $parsedData[1];
         <p>No data found or there was an error retrieving the data.</p>
     <?php endif; ?>
 </div>
+
 <script>
-        function toggleDateFilters() {
-            var checkbox = document.getElementById('dateFilterCheckbox');
-            var dateFilters = document.getElementById('dateFilters');
-            dateFilters.style.display = checkbox.checked ? 'block' : 'none';
-        }
-    </script>
-</body>
+function toggleDateFilters() {
+    var checkbox = document.getElementById('dateFilterCheckbox');
+    var dateFilters = document.getElementById('dateFilters');
+    dateFilters.style.display = checkbox.checked ? 'block' : 'none';
+}
+</script>
+
 <?php include("$root/backend/footer.php"); ?>
