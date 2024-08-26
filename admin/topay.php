@@ -60,7 +60,7 @@ function sanitizeEmail($email) {
 
 function sendEmail($to, $call, $cardsOnHand, $emailConfig) {
     $mail = new PHPMailer(true);
-    $debugEmail = 'kevin@na7kr.us';
+    $debugEmail = 'krr001@gmail.com';
     if ($emailConfig['testing']) {
         $to = $debugEmail;
         echo "Testing enabled: Email will be sent to debug address ($debugEmail) instead.<br>";
@@ -75,7 +75,7 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig) {
         $mail->Password = $emailConfig['password'];
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
         $mail->Port = $emailConfig['port'];
-        $mail->setFrom('ars.kevin@na7kr.us', 'Kevin Roberts NA7KR');
+        $mail->setFrom('ars.na7kr@na7kr.us', 'Kevin Roberts ARRL 7th district QSL sorter for the F section');
         $mail->addAddress($to);
         $mail->isHTML($emailConfig['send_html']);
         $mail->Subject = 'Incoming DX Card(s) Notification';
@@ -87,11 +87,16 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig) {
             If you would like to receive these cards, please go to <a href='https://wvdxc.org/pay-online-for-credits/'>pay online for credits</a> or use the mail-in form.<br>
             Please respond within 30 days, or else your account will be marked discard all incoming bureau cards.<br><br>
             If you would NOT like to receive incoming bureau cards, please let me know.<br><br>
-            If you have any questions or concerns, please reply to this email or email me at ARS.kevin@na7kr.us.<br><br>
+            If you have any questions or concerns, please reply to this email or email me at ars.na7kr@na7kr.us.<br><br>
             You can read more about the 7th district QSL bureau at <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.
+            Sorry if repelied to this before. I had email error, plrase reply if any questions.<br><br>
         ";
         $mail->addEmbeddedImage('../7thArea.png', '7thArea');
-
+         // Add delivery receipt
+        $mail->addCustomHeader('Return-Receipt-To', 'ars.na7kr@na7kr.us');
+        
+        // Add read receipt
+        $mail->addCustomHeader('Disposition-Notification-To', 'ars.na7kr@na7kr.us');
         $mail->send();
         echo "Message has been sent to $call ($to)<br>";
     } catch (Exception $e) {
