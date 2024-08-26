@@ -89,7 +89,6 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig) {
             If you would NOT like to receive incoming bureau cards, please let me know.<br><br>
             If you have any questions or concerns, please reply to this email or email me at ars.na7kr@na7kr.us.<br><br>
             You can read more about the 7th district QSL bureau at <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.
-            Sorry if repelied to this before. I had email error, plrase reply if any questions.<br><br>
         ";
         $mail->addEmbeddedImage('../7thArea.png', '7thArea');
          // Add delivery receipt
