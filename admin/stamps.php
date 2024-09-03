@@ -249,10 +249,10 @@ if ($selectedLetter !== null) {
 
     <h2>Stamp Summary</h2>
     <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
-        <p>Total Stamps On Hand: <?= htmlspecialchars($totals['stampsOnHand'] ?? 0) ?></p>
+        <!--- <p>Total Stamps On Hand: <?= htmlspecialchars($totals['stampsOnHand'] ?? 0) ?></p> -->
         <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost'] ?? 0) ?></p> 
     <?php endif; ?>
-    <p>Total Stamps Used: <?= htmlspecialchars($totals['stampsUsed'] ?? 0) ?></p>
+    <!--- <p>Total Stamps Used: <?= htmlspecialchars($totals['stampsUsed'] ?? 0) ?></p> -->
     <p>Total Cost of Postage Used: $<?= htmlspecialchars($totals['costOfPostage'] ?? 0) ?></p>
 
     <?php if (!empty($data)): ?>
