@@ -1,4 +1,19 @@
 <?php
+/*
+Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 session_start();
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
@@ -65,7 +80,7 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig) {
         $to = $debugEmail;
         echo "Testing enabled: Email will be sent to debug address ($debugEmail) instead.<br>";
     }
-   
+
     try {
         $mail->SMTPDebug = $emailConfig['debugging'] ? SMTP::DEBUG_SERVER : SMTP::DEBUG_OFF;
         $mail->isSMTP();
@@ -91,10 +106,7 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig) {
             You can read more about the 7th district QSL bureau at <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.
         ";
         $mail->addEmbeddedImage('../7thArea.png', '7thArea');
-         // Add delivery receipt
         $mail->addCustomHeader('Return-Receipt-To', 'ars.na7kr@na7kr.us');
-        
-        // Add read receipt
         $mail->addCustomHeader('Disposition-Notification-To', 'ars.na7kr@na7kr.us');
         $mail->send();
         echo "Message has been sent to $call ($to)<br>";
@@ -113,11 +125,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         $dbPath = $config['sections'][$selectedLetter];
         $rawCardData = fetchData($dbPath, 'tbl_CardRec');
         if (!empty($rawCardData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawCardData)));
+            $headers = normalizeHeaders(str_getcsv(array_shift($rawCardData), ",", "\"", "\\")); // Fixed
             $callIndex = array_search('Call', $headers);
             $cardsReceivedIndex = array_search('CardsReceived', $headers);
             foreach ($rawCardData as $row) {
-                $columns = str_getcsv($row);
+                $columns = str_getcsv($row, ",", "\"", "\\"); // Fixed
                 if ($callIndex !== false && $cardsReceivedIndex !== false) {
                     $call = $columns[$callIndex];
                     $cardsReceived = (int)$columns[$cardsReceivedIndex];
@@ -132,12 +144,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
         $rawMailedData = fetchData($dbPath, 'tbl_CardM');
         if (!empty($rawMailedData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawMailedData)));
+            $headers = normalizeHeaders(str_getcsv(array_shift($rawMailedData), ",", "\"", "\\")); // Fixed
             $callIndex = array_search('Call', $headers);
             $cardsMailedIndex = array_search('CardsMailed', $headers);
             $totalCostIndex = array_search('Total Cost', $headers);
             foreach ($rawMailedData as $row) {
-                $columns = str_getcsv($row);
+                $columns = str_getcsv($row, ",", "\"", "\\"); // Fixed
                 if ($callIndex !== false && $cardsMailedIndex !== false) {
                     $call = $columns[$callIndex];
                     $cardsMailed = (int)$columns[$cardsMailedIndex];
@@ -158,12 +170,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
         $rawReturnedData = fetchData($dbPath, 'tbl_CardRet');
         if (!empty($rawReturnedData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawReturnedData)));
+            $headers = normalizeHeaders(str_getcsv(array_shift($rawReturnedData), ",", "\"", "\\")); // Fixed
             $callIndex = array_search('Call', $headers);
             $cardsReturnedIndex = array_search('CardsReturned', $headers);
-
             foreach ($rawReturnedData as $row) {
-                $columns = str_getcsv($row);
+                $columns = str_getcsv($row, ",", "\"", "\\"); // Fixed
                 if ($callIndex !== false && $cardsReturnedIndex !== false) {
                     $call = $columns[$callIndex];
                     $cardsReturned = (int)$columns[$cardsReturnedIndex];
@@ -176,27 +187,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
                 }
             }
         }
-        $rawMoneyReceivedData = fetchData($dbPath, 'tbl_MoneyR');
-        if (!empty($rawMoneyReceivedData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawMoneyReceivedData)));
-            $callIndex = array_search('Call', $headers);
-            $moneyReceivedIndex = array_search('MoneyReceived', $headers);
-            foreach ($rawMoneyReceivedData as $row) {
-                $columns = str_getcsv($row);
-                if ($callIndex !== false && $moneyReceivedIndex !== false) {
-                    $call = $columns[$callIndex];
-                    $moneyReceived = (float)$columns[$moneyReceivedIndex];
-                    if (isset($moneyReceivedData[$call])) {
-                        $moneyReceivedData[$call] += $moneyReceived;
-                    } else {
-                        $moneyReceivedData[$call] = $moneyReceived;
-                    }
-                }
-            }
-        }
         $rawOperatorData = fetchData($dbPath, 'tbl_Operator');
         if (!empty($rawOperatorData)) {
-            $headers = normalizeHeaders(str_getcsv(array_shift($rawOperatorData)));
+            $headers = normalizeHeaders(str_getcsv(array_shift($rawOperatorData), ",", "\"", "\\")); // Fixed
             $callIndex = array_search('Call', $headers);
             $firstNameIndex = array_search('FirstName', $headers);
             $lastNameIndex = array_search('LastName', $headers);
@@ -207,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             $stateIndex = array_search('State', $headers);
             $zipIndex = array_search('Zip', $headers);
             foreach ($rawOperatorData as $row) {
-                $columns = str_getcsv($row);
+                $columns = str_getcsv($row, ",", "\"", "\\"); // Fixed
                 if ($callIndex !== false && $mailInstIndex !== false && $emailIndex !== false) {
                     $call = $columns[$callIndex];
                     $firstName = isset($columns[$firstNameIndex]) ? $columns[$firstNameIndex] : '';
@@ -250,9 +243,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             $state = $operatorData[$call]['state'] ?? '';
             $zip = $operatorData[$call]['zip'] ?? '';
             $total = $moneyReceived - $totalCost;
-            if ($cardsOnHand > 0 && $total <= 0 && 
-                ((!$filterEmail && !$filterNoEmail) || 
-                ($filterEmail && !empty($email)) || 
+            if ($cardsOnHand > 0 && $total <= 0 &&
+                ((!$filterEmail && !$filterNoEmail) ||
+                ($filterEmail && !empty($email)) ||
                 ($filterNoEmail && empty($email)))) {
                 $entry = [
                     'Call' => $call,
@@ -393,7 +386,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             <button type="submit" name="print_selected">Print Selected</button>
         </form>
     <?php elseif ($selectedLetter !== null): ?>
-        <p>No data found or there was an error retrieving the data.</p>
+        <p>No data found or there was an error retrieving the data.</p
+php
+Copy code
     <?php endif; ?>
 
     <?php if (!empty($submittedData)): ?>

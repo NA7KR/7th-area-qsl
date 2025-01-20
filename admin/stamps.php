@@ -14,11 +14,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 $title = "Stamp Tracker";
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
+    header('Location: login.php');
+    exit;
+}
 include("$root/backend/header.php");
 $config = include($root . '/config.php');
 
@@ -89,12 +94,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         // Fetch data from tbl_CardM with DateMailed filtering
         $rawMailedData = fetchData($dbPath, 'tbl_CardM', $startDate, $endDate, 'DateMailed');
         if (!empty($rawMailedData)) {
-            $headers = str_getcsv(array_shift($rawMailedData));
+            $headers = str_getcsv(array_shift($rawMailedData), ",", "\"", "\\"); // Fixed
             $callIndex = array_search('Call', $headers);
             $cardsMailedIndex = array_search('CardsMailed', $headers);
 
             foreach ($rawMailedData as $row) {
-                $columns = str_getcsv($row);
+                $columns = str_getcsv($row, ",", "\"", "\\"); // Fixed
                 if ($callIndex !== false && $cardsMailedIndex !== false) {
                     $cardsMailed = (int)$columns[$cardsMailedIndex];
                     $mailedData[] = [
@@ -130,7 +135,7 @@ function parseData($rawData, $config, $debug = false) {
         return [$data, $totals];
     }
 
-    $headers = str_getcsv(array_shift($rawData));
+    $headers = str_getcsv(array_shift($rawData), ",", "\"", "\\"); // Fixed
     if ($headers === false) {
         echo "<p>Debug: Failed to parse headers in tbl_Stamps.</p>";
         error_log("Debug: Failed to parse headers in tbl_Stamps.");
@@ -149,7 +154,7 @@ function parseData($rawData, $config, $debug = false) {
     }
 
     foreach ($rawData as $row) {
-        $columns = str_getcsv($row);
+        $columns = str_getcsv($row, ",", "\"", "\\"); // Fixed
         if ($columns === false) {
             echo "<p>Debug: Failed to parse a row in tbl_Stamps.</p>";
             error_log("Debug: Failed to parse a row in tbl_Stamps.");
@@ -232,14 +237,14 @@ if ($selectedLetter !== null) {
                 </option>
             <?php endforeach; ?>
         </select>
-        
+
         <label for="dateFilterCheckbox">Enable Date Filter:</label>
         <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()" <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
 
         <div id="dateFilters" style="display: <?= isset($_POST['dateFilterCheckbox']) ? 'block' : 'none' ?>;">
             <label for="startDate">Start Date:</label>
             <input type="date" id="startDate" name="startDate" value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
-            
+
             <label for="endDate">End Date:</label>
             <input type="date" id="endDate" name="endDate" value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
         </div>
@@ -249,10 +254,8 @@ if ($selectedLetter !== null) {
 
     <h2>Stamp Summary</h2>
     <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
-        <!--- <p>Total Stamps On Hand: <?= htmlspecialchars($totals['stampsOnHand'] ?? 0) ?></p> -->
-        <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost'] ?? 0) ?></p> 
+        <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost'] ?? 0) ?></p>
     <?php endif; ?>
-    <!--- <p>Total Stamps Used: <?= htmlspecialchars($totals['stampsUsed'] ?? 0) ?></p> -->
     <p>Total Cost of Postage Used: $<?= htmlspecialchars($totals['costOfPostage'] ?? 0) ?></p>
 
     <?php if (!empty($data)): ?>
