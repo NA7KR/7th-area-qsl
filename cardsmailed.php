@@ -4,56 +4,93 @@ $title = "Cards Mailed Out";
 $debug = false;
 
 include("$root/backend/header.php");
-
 $config = include($root . '/config.php');
 
-function fetchData($dbPath, $tableName, $startDate = null, $endDate = null, $enableDateFilter = false, $debug = false) {
-    $escapedDbPath = escapeshellarg($dbPath);
-    $escapedTableName = escapeshellarg($tableName);
-    
-    // Build the command
-    $command = "mdb-export $escapedDbPath $escapedTableName";
+/**
+ * Fetches data from MySQL using PDO, returning CSV-like lines so parseMailedData() stays unchanged.
+ *
+ * @param PDO    $pdo               The PDO connection to the MySQL database.
+ * @param string $tableName         Table from which to retrieve data.
+ * @param string $startDate         Optional start date (YYYY-MM-DD) for filtering.
+ * @param string $endDate           Optional end date (YYYY-MM-DD) for filtering.
+ * @param bool   $enableDateFilter  Whether or not to apply date range filtering.
+ * @param bool   $debug             If true, echoes the SQL query for debugging.
+ *
+ * @return string[] An array of CSV lines (header + data).
+ */
+function fetchData(PDO $pdo, $tableName, $startDate = null, $endDate = null, $enableDateFilter = false, $debug = false)
+{
+    // Assuming these columns exist in your MySQL table:
+    //   Call (VARCHAR), CardsMailed (INT), DateMailed (DATE or DATETIME)
+    $query = "SELECT `Call`, `CardsMailed`, `DateMailed` FROM `$tableName`";
+    $conditions = [];
+
     if ($enableDateFilter && $startDate && $endDate) {
-        $awkCommand = "awk -F',' 'NR==1 {print \$0; next} "; // Print header row
-        $awkCommand .= "{";
-        $awkCommand .= "split(\$6, date_time, \" \");";
-        $awkCommand .= "date = date_time[1];";
-        $awkCommand .= "gsub(/\"/, \"\", date);";
-        $awkCommand .= "split(date, parts, \"/\");";
-        $awkCommand .= "month = parts[1];";
-        $awkCommand .= "day = parts[2];";
-        $awkCommand .= "year = parts[3];";
-        $awkCommand .= "formattedDate = year month day;";
-        $awkCommand .= "if (formattedDate >= \"" . date("ymd", strtotime($startDate)) . "\" && formattedDate <= \"" . date("ymd", strtotime($endDate)) . "\")";
-        $awkCommand .= "print \$0;";
-        $awkCommand .= "}'";
-        $command .= " | " . $awkCommand;
+        // Compare date range in MySQL
+        // Make sure the table column is actually typed as DATE/DATETIME (or at least a parseable format).
+        $conditions[] = "`DateMailed` BETWEEN :startDate AND :endDate";
     }
-    
+
+    if (!empty($conditions)) {
+        $query .= " WHERE " . implode(' AND ', $conditions);
+    }
+
     if ($debug) {
-        echo "Debug: Command: " . htmlspecialchars($command) . "<br>";
+        echo "Debug: SQL Query: " . htmlspecialchars($query) . "<br>";
     }
 
-    $output = [];
-    $return_var = 0;
-    exec($command, $output, $return_var);
+    try {
+        $stmt = $pdo->prepare($query);
 
-    if ($return_var !== 0) {
-        echo "Error: Could not retrieve data from $tableName.";
+        if ($enableDateFilter && $startDate && $endDate) {
+            // Bind :startDate and :endDate as strings in YYYY-MM-DD format
+            $stmt->bindValue(':startDate', $startDate);
+            $stmt->bindValue(':endDate',   $endDate);
+        }
+
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    } catch (PDOException $e) {
+        echo "Error: " . $e->getMessage();
         return [];
     }
+
+    // Convert the result set into CSV-like lines for parseMailedData().
+    // The first line is the CSV header that parseMailedData() expects.
+    $output = [];
+    $output[] = "Call,CardsMailed,DateMailed"; // match the columns we selected
+
+    foreach ($rows as $row) {
+        // Safely handle null fields
+        $call        = '"' . ($row['Call']        ?? '') . '"';
+        $cardsMailed = '"' . ($row['CardsMailed'] ?? '') . '"';
+        $dateMailed  = '"' . ($row['DateMailed']  ?? '') . '"';
+
+        // Create a CSV line
+        $output[] = implode(',', [$call, $cardsMailed, $dateMailed]);
+    }
+
     return $output;
 }
 
-
-function parseMailedData($rawData) {
+/**
+ * Parses CSV-like data for "Call" and "CardsMailed" columns, returning an array plus total cards mailed.
+ *
+ * @param string[] $rawData CSV lines (first line = header, subsequent lines = data).
+ *
+ * @return array [ (array $mailedData), (int $totalCardsMailed) ]
+ */
+function parseMailedData($rawData)
+{
     if (empty($rawData)) {
         return [[], 0];
     }
 
+    // First line is the CSV header
     $headers = str_getcsv(array_shift($rawData));
-    $callIndex = array_search('Call', $headers);
-    $cardsMailedIndex = array_search('CardsMailed', $headers);
+    $callIndex         = array_search('Call',         $headers);
+    $cardsMailedIndex  = array_search('CardsMailed',  $headers);
 
     if ($callIndex === false || $cardsMailedIndex === false) {
         echo "Error: Could not find required columns in the data.";
@@ -66,45 +103,64 @@ function parseMailedData($rawData) {
     foreach ($rawData as $row) {
         $columns = str_getcsv($row);
         if (isset($columns[$callIndex]) && isset($columns[$cardsMailedIndex])) {
-            $call = $columns[$callIndex];
-            $cardsMailed = (int)$columns[$cardsMailedIndex];
+            $call         = $columns[$callIndex];
+            $cardsMailed  = (int)$columns[$cardsMailedIndex];
             $mailedData[] = [
-                'Call' => $call,
+                'Call'        => $call,
                 'CardsMailed' => $cardsMailed
             ];
             $totalCardsMailed += $cardsMailed;
         }
     }
 
-    usort($mailedData, function($a, $b) {
-        return strcasecmp($a['Call'], $b['Call']);
-    });
+    // Sort by Call
+    usort($mailedData, fn($a, $b) => strcasecmp($a['Call'], $b['Call']));
 
     return [$mailedData, $totalCardsMailed];
 }
 
-function handleFormSubmission($config, $debug) {
+/**
+ * Handles form submission, opens a PDO connection, fetches & parses data, and returns array with results.
+ */
+function handleFormSubmission($config, $debug)
+{
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-        return [null, [], 0];
+        return [null, [[], 0]];
     }
 
-    $selectedLetter = $_POST['letter'] ?? null;
+    $selectedLetter   = $_POST['letter']            ?? null;
     $enableDateFilter = isset($_POST['dateFilterCheckbox']);
-    $startDate = $_POST['startDate'] ?? null;
-    $endDate = $_POST['endDate'] ?? null;
+    $startDate        = $_POST['startDate']         ?? null; // e.g., "2025-01-01"
+    $endDate          = $_POST['endDate']           ?? null; // e.g., "2025-01-30"
 
     if (!$selectedLetter || !isset($config['sections'][$selectedLetter])) {
         echo "Error: Invalid database configuration.";
-        return [null, [], 0];
+        return [null, [[], 0]];
     }
 
-    $dbPath = $config['sections'][$selectedLetter];
-    $rawMailedData = fetchData($dbPath, 'tbl_CardM', $startDate, $endDate, $enableDateFilter, $debug);
+    // Build PDO connection from config
+    $dbInfo = $config['sections'][$selectedLetter];
+    try {
+        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
+        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    } catch (PDOException $e) {
+        die("Connection failed: " . $e->getMessage());
+    }
+
+    // Fetch from tbl_CardM
+    $rawMailedData = fetchData($pdo, 'tbl_CardM', $startDate, $endDate, $enableDateFilter, $debug);
+
+    // Parse into array & total
     return [$selectedLetter, parseMailedData($rawMailedData)];
 }
 
+// ------------------------------------------------------------------
+// MAIN CODE
+// ------------------------------------------------------------------
 list($selectedLetter, $parsedData) = handleFormSubmission($config, $debug);
-$mailedData = $parsedData[0];
+$mailedData       = $parsedData[0];
 $totalCardsMailed = $parsedData[1];
 ?>
 
@@ -115,22 +171,27 @@ $totalCardsMailed = $parsedData[1];
     <form method="POST">
         <label for="letter">Select a Section:</label>
         <select name="letter" id="letter">
-            <?php foreach ($config['sections'] as $letter => $dbPath): ?>
-                <option value="<?= htmlspecialchars($letter) ?>" <?= $selectedLetter === $letter ? 'selected' : '' ?>>
+            <?php foreach ($config['sections'] as $letter => $dbInfo): ?>
+                <option value="<?= htmlspecialchars($letter) ?>" 
+                        <?= $selectedLetter === $letter ? 'selected' : '' ?>>
                     <?= htmlspecialchars($letter) ?>
                 </option>
             <?php endforeach; ?>
         </select>
 
         <label for="dateFilterCheckbox">Enable Date Filter:</label>
-        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()" <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
+        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" 
+               onclick="toggleDateFilters()" 
+               <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
 
         <div id="dateFilters" style="display: <?= isset($_POST['dateFilterCheckbox']) ? 'block' : 'none' ?>;">
             <label for="startDate">Start Date:</label>
-            <input type="date" id="startDate" name="startDate" value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
-            
+            <input type="date" id="startDate" name="startDate"
+                   value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
+
             <label for="endDate">End Date:</label>
-            <input type="date" id="endDate" name="endDate" value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
+            <input type="date" id="endDate" name="endDate"
+                   value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
         </div>
 
         <button type="submit">Submit</button>
