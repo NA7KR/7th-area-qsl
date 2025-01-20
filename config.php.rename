@@ -1,0 +1,109 @@
+<?php
+
+// config.php
+return [
+    'sections' => [
+        'F' => [
+            'host' => 'server', // Replace with your database name
+            'username' => 'user', // Replace with your username
+            'password' => 'password', // Replace with your password;
+            'dbname' => 'F-Section', // Replace with your database name
+        ],
+        'O' => [
+            'host' => 'server', // Replace with your database name
+            'username' => 'user', // Replace with your username
+            'password' => 'password', // Replace with your password;
+            'dbname' => 'O-Section', // Replace with your database name
+        ],
+    ],
+    'unpaid_threshold' => .85,
+    // Email configuration
+    'email' => [
+        'sender' => 'email',
+        'password' => 'password',
+        'server' => 'server',
+        'port' => 465,
+        'testing' => false, // Debug mode false
+        'debugging' => false,
+        'send_html' => true,
+        'testing' => false, // Set this to true to use the debug email
+    ],
+    // User credentials
+    'credentials' => [
+        'na7kr' => '',
+        'k7vi'  => '',
+    ],
+    // Pages configuration
+    'pages' => [
+        'Home' => '/index.php',
+        'Total Cards on Hand' => '/total-m.php',
+        'Total Cards Received' => '/total.php',
+        'Cards Mailed' => '/cardsmailed.php',
+    ],
+   
+    // QRZ API configuration
+    'qrz_api' => [
+        'callsign' => 'call', // Replace with your actual QRZ CALLSIGN key
+        'key' => 'password' // Replace with your actual QRZ API key
+    ],
+    // Admin submenu configuration
+    'admin' => [
+        'Admin' => '/index.php',
+        'submenu' => [
+            'Login' => [
+                'url' => '/admin/login.php',
+                'login' => false,
+            ],
+            'Logout' => [
+                'url' => '/admin/logout.php',
+                'login' => true,
+            ],
+            'To Pay' => [
+                'url' => '/admin/topay.php',
+                'login' => true,
+            ],
+            'Paid' => [
+                'url' => '/admin/paid.php',
+                'login' => true,
+            ],
+            'Disposed Cards' => [
+                'url' => '/admin/dispose.php',
+                'login' => true,
+            ],
+            'No Cards' => [
+                'url' => '/admin/nocards.php',
+                'login' => true,
+            ],
+            'Stamps' => [
+                'url' => '/admin/stamps.php',
+                'login' => true,
+            ],
+            'Operator Add' => [
+                'url' => '/admin/operator-add.php',
+                'login' => true,
+            ],
+            'Operator Edit' => [
+                'url' => '/admin/operator-edit.php',
+                'login' => true,
+            ],
+            'Operator Delete' => [
+                'url' => '/admin/operator-del.php',
+                'login' => true,
+            ],
+        ],
+    ],
+    'ignore_statuses' => [
+        'DNU',
+        'DNU-DESTROY',
+        'License Expired',
+        'SK',
+        'SILENT KEY',
+        'Active_DIFF_Address',
+    ],
+    'stamps' => [
+        'Postcard' => '0.56', 
+        'Forever' => '0.73', 
+        'Additonal Ounce' => '0.28',
+    ],
+    
+];
