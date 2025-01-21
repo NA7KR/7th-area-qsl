@@ -13,294 +13,249 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-*/
+ */
+
+
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
+
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 $title = "Stamp Tracker";
+
+// Ensure user is logged in
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
 }
+
 include("$root/backend/header.php");
 $config = include($root . '/config.php');
 
-$debug = false;
-
-// Function to fetch data from the specified table using mdbtools
-function fetchData($dbPath, $tableName, $startDate = null, $endDate = null, $dateColumn = null) {
-    // Verify that the database path exists
-    if (!file_exists($dbPath)) {
-        echo "Error: Database file not found at path: $dbPath";
-        return [];
-    }
-    $startDate = $startDate ? date("m/d/y", strtotime($startDate)) : null;
-    $endDate = $endDate ? date("m/d/y", strtotime($endDate)) : null;
-    $dateFieldNumber = 6; // Adjust if necessary
-
-    // Construct the basic command for MDBTools
-    $command = "mdb-export '$dbPath' '$tableName'";
-
-    // Apply date filtering using the specified date column, only if both dates are provided
-    if (!empty($startDate) && !empty($endDate) && !empty($dateColumn)) {
-        $command .= " | awk -F, 'BEGIN {OFS=\",\"} { dateField=substr(\$$dateFieldNumber, 2, 8); if (dateField >= \"$startDate\" && dateField <= \"$endDate\") print }'";
-    }
-
-    // Debug: Print the exact command being executed
-    if ($GLOBALS['debug']) {
-        echo "<p>Debug: Executing command: $command</p>";
-        echo "<p>Debug: Date Column: $dateColumn</p>";
-    }
-
-    // Execute the command and capture the output
-    $output = [];
-    $return_var = 0;
-    exec($command, $output, $return_var);
-
-    // Debug: Print the output of the command
-    if ($GLOBALS['debug']) {
-        echo "<p>Debug: Command output:</p>";
-        echo "<pre>" . implode("\n", $output) . "</pre>";
-    }
-
-    // Check if the command failed
-    if ($return_var !== 0) {
-        echo "Error: Could not retrieve data from $tableName. Command executed: $command";
-        return [];
-    }
-
-    // Check if the output is empty
-    if (empty($output)) {
-        echo "Error: No data retrieved from $tableName. It might be an empty table or an issue with the query.";
-        return [];
-    }
-
-    return $output;
-}
-
-$selectedLetter = null;
-$mailedData = [];
-$totalCardsMailed = 0;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
-    $selectedLetter = $_POST['letter'];
-    $startDate = $_POST['startDate'] ?? null;
-    $endDate = $_POST['endDate'] ?? null;
-    if (isset($config['sections'][$selectedLetter])) {
-        $dbPath = $config['sections'][$selectedLetter];
-
-        // Fetch data from tbl_CardM with DateMailed filtering
-        $rawMailedData = fetchData($dbPath, 'tbl_CardM', $startDate, $endDate, 'DateMailed');
-        if (!empty($rawMailedData)) {
-            $headers = str_getcsv(array_shift($rawMailedData), ",", "\"", "\\"); // Fixed
-            $callIndex = array_search('Call', $headers);
-            $cardsMailedIndex = array_search('CardsMailed', $headers);
-
-            foreach ($rawMailedData as $row) {
-                $columns = str_getcsv($row, ",", "\"", "\\"); // Fixed
-                if ($callIndex !== false && $cardsMailedIndex !== false) {
-                    $cardsMailed = (int)$columns[$cardsMailedIndex];
-                    $mailedData[] = [
-                        'Call' => $columns[$callIndex],
-                        'CardsMailed' => $cardsMailed
-                    ];
-                    $totalCardsMailed += $cardsMailed;
-                }
-            }
-
-            usort($mailedData, function($a, $b) {
-                return strcasecmp($a['Call'], $b['Call']);
-            });
-        }
-    } else {
-        echo "Error: Invalid database configuration.";
+/**
+ * Create a PDO connection using config array: ['host','dbname','username','password'].
+ */
+function getPDOConnection(array $dbInfo)
+{
+    try {
+        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
+        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $pdo;
+    } catch (PDOException $e) {
+        die("Database connection failed: " . $e->getMessage());
     }
 }
 
-function parseData($rawData, $config, $debug = false) {
-    $data = [];
-    $aggregatedData = [];
-    $totals = [
-        'stampsOnHand' => 0,
-        'stampsUsed' => 0,
-        'costOfPostage' => '0',
-        'purchaseCost' => '0',
-    ];
+/**
+ * Fetch all rows from tbl_Stamps, optionally with date filtering on $dateColumn.
+ * We do NOT do grouping in SQL here, so we can apply config-based values in PHP.
+ */
+function fetchAllStamps(PDO $pdo, $tableName, $startDate = null, $endDate = null, $dateColumn = null)
+{
+    $query = "SELECT * FROM `$tableName`";
+    $params = [];
 
-    if (empty($rawData) || !is_array($rawData)) {
-        echo "<p>Debug: No data to process in tbl_Stamps.</p>";
-        error_log("Debug: No data to process in tbl_Stamps.");
-        return [$data, $totals];
+    if ($dateColumn && $startDate && $endDate) {
+        $query .= " WHERE `$dateColumn` BETWEEN :startDate AND :endDate";
+        $params[':startDate'] = $startDate;
+        $params[':endDate']   = $endDate;
     }
 
-    $headers = str_getcsv(array_shift($rawData), ",", "\"", "\\"); // Fixed
-    if ($headers === false) {
-        echo "<p>Debug: Failed to parse headers in tbl_Stamps.</p>";
-        error_log("Debug: Failed to parse headers in tbl_Stamps.");
-        return [$data, $totals];
+    // Maybe sort by date or ID, up to you
+    $query .= " ORDER BY `ID` ASC";
+
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        die("Error retrieving stamp data: " . $e->getMessage());
     }
+}
 
-    // Adjust these variable names if the column names in your database are different
-    $valueIndex = 1; // Column where stamp value is stored
-    $qtyPurchasedIndex = 2; // Column for quantity purchased
-    $qtyUsedIndex = 3; // Column for quantity used
+/**
+ * Group rows by `Value` in PHP, summing QTY Purchased/Used, 
+ * then calculating "Stamps On Hand", "Total Purchased", "Cost of Postage"
+ * using config-based stamp values (if any).
+ */
+function parseAndAggregate(array $rows, array $config): array
+{
+    // We'll accumulate into $aggregated[$valueName].
+    $aggregated = [];
 
-    if ($valueIndex === false || $qtyPurchasedIndex === false || $qtyUsedIndex === false) {
-        echo "<p>Debug: Missing required columns in tbl_Stamps.</p>";
-        error_log("Debug: Missing required columns in tbl_Stamps.");
-        return [$data, $totals];
-    }
+    foreach ($rows as $r) {
+        // The columns have spaces, so we must reference them in $r exactly:
+        $valueRaw       = $r['Value']            ?? ''; // e.g. "Forever", "Additional Ounce", "0.01"
+        $qtyPurchased   = $r['QTY Purchased']    ?? 0;  // int
+        $qtyUsed        = $r['QTY Used']         ?? 0;  // int
 
-    foreach ($rawData as $row) {
-        $columns = str_getcsv($row, ",", "\"", "\\"); // Fixed
-        if ($columns === false) {
-            echo "<p>Debug: Failed to parse a row in tbl_Stamps.</p>";
-            error_log("Debug: Failed to parse a row in tbl_Stamps.");
-            continue;
+        // Convert them to int
+        $qtyPurchased   = (int)$qtyPurchased;
+        $qtyUsed        = (int)$qtyUsed;
+
+        // If config has a custom numeric for this value
+        // e.g. $config['stamps']['Forever'] = 0.63
+        if (isset($config['stamps'][$valueRaw])) {
+            $stampNumericValue = (float)$config['stamps'][$valueRaw];
+        } else {
+            // Attempt to parse the string as a float (like "0.01")
+            // If not numeric, it becomes 0
+            $stampNumericValue = (float)$valueRaw;
         }
 
-        $value = trim((string) $columns[$valueIndex]);
-        $qtyPurchased = (int) $columns[$qtyPurchasedIndex];
-        $qtyUsed = (int) $columns[$qtyUsedIndex];
-
-        $calculationValue = isset($config['stamps'][$value]) ? $config['stamps'][$value] : $value;
-
-        if (!isset($aggregatedData[$value])) {
-            $aggregatedData[$value] = [
-                'Value' => $value,
-                'Value2' => $value,
-                'QTY Purchased' => 0,
-                'QTY Used' => 0,
+        // Initialize aggregator if not set
+        if (!isset($aggregated[$valueRaw])) {
+            $aggregated[$valueRaw] = [
+                'Value'          => $valueRaw, // to display
+                'QTY Purchased'  => 0,
+                'QTY Used'       => 0,
                 'Stamps On Hand' => 0,
-                'Cost of Postage' => '0',
-                'Total' => '0',
+                'Total Purchased'=> 0.0,
+                'Cost of Postage'=> 0.0,
+                'NumericValue'   => $stampNumericValue // store for calculations
             ];
         }
 
-        $aggregatedData[$value]['QTY Purchased'] += $qtyPurchased;
-        $aggregatedData[$value]['QTY Used'] += $qtyUsed;
-        $aggregatedData[$value]['Stamps On Hand'] = $aggregatedData[$value]['QTY Purchased'] - $aggregatedData[$value]['QTY Used'];
-
-        $costOfPostage = bcmul((string)$qtyUsed, is_numeric($calculationValue) ? $calculationValue : '0', 2);
-        $aggregatedData[$value]['Cost of Postage'] = bcadd($aggregatedData[$value]['Cost of Postage'], $costOfPostage, 2);
-
-        $total = bcmul((string)$qtyPurchased, is_numeric($calculationValue) ? $calculationValue : '0', 2);
-        $aggregatedData[$value]['Total'] = bcadd($aggregatedData[$value]['Total'], $total, 2);
-
-        $totals['stampsOnHand'] += $aggregatedData[$value]['Stamps On Hand'];
-        $totals['stampsUsed'] += $qtyUsed;
-        $totals['costOfPostage'] = bcadd($totals['costOfPostage'], $costOfPostage, 2);
-        $totals['purchaseCost'] = bcadd($totals['purchaseCost'], $total, 2);
+        // Accumulate
+        $aggregated[$valueRaw]['QTY Purchased'] += $qtyPurchased;
+        $aggregated[$valueRaw]['QTY Used']      += $qtyUsed;
     }
 
-    $data = array_values($aggregatedData);
+    // After summing QTYs, compute 'Stamps On Hand', 'Total Purchased', 'Cost of Postage'
+    foreach ($aggregated as $valueKey => &$stamp) {
+        $purchased = $stamp['QTY Purchased'];
+        $used      = $stamp['QTY Used'];
+        $numeric   = $stamp['NumericValue']; // e.g. 0.63 for Forever
 
-    return [$data, $totals];
+        $stamp['Stamps On Hand'] = $purchased - $used;
+        // total purchased = purchased * numeric
+        $stamp['Total Purchased'] = round($purchased * $numeric, 2);
+        // cost of postage = used * numeric
+        $stamp['Cost of Postage'] = round($used * $numeric, 2);
+    }
+    unset($stamp);
+
+    // Convert from assoc to indexed array
+    return array_values($aggregated);
 }
 
-if ($selectedLetter !== null) {
-    $dbPath = $config['sections'][$selectedLetter];
-    // Fetch data from tbl_Stamps with DateAdded filtering
-    $rawStampData = fetchData($dbPath, 'tbl_Stamps', $_POST['startDate'], $_POST['endDate'], 'DateAdded');
-    list($data, $totals) = parseData($rawStampData, $config, $debug);
+// ----------------- MAIN -----------------
+$selectedLetter   = null;
+$dataRows         = [];  // raw MySQL rows
+$aggregatedStamps = [];  // after aggregator
 
-    usort($data, function($a, $b) {
-        return $a['Value'] <=> $b['Value'];
-    });
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $selectedLetter   = $_POST['letter']            ?? null;
+    $enableDateFilter = isset($_POST['dateFilterCheckbox']);
+    $startDate        = $_POST['startDate']         ?? null;
+    $endDate          = $_POST['endDate']           ?? null;
 
-    if ($debug) {
-        echo "<p>Debug: Total Stamps On Hand: {$totals['stampsOnHand']}</p>";
-        echo "<p>Debug: Total Stamps Used: {$totals['stampsUsed']}</p>";
-        echo "<p>Debug: Total Cost of Postage: {$totals['costOfPostage']}</p>";
-        echo "<p>Debug: Total Purchase Cost: {$totals['purchaseCost']}</p>";
-        error_log("Debug: Total Stamps On Hand: {$totals['stampsOnHand']}");
-        error_log("Debug: Total Stamps Used: {$totals['stampsUsed']}");
-        error_log("Debug: Total Cost of Postage: {$totals['costOfPostage']}");
-        error_log("Debug: Total Purchase Cost: {$totals['purchaseCost']}");
+    if ($selectedLetter && isset($config['sections'][$selectedLetter])) {
+        $dbInfo = $config['sections'][$selectedLetter];
+        $pdo    = getPDOConnection($dbInfo);
+
+        // fetch all rows from tbl_Stamps
+        if ($enableDateFilter && $startDate && $endDate) {
+            $dataRows = fetchAllStamps($pdo, 'tbl_Stamps', $startDate, $endDate, 'DateAdded');
+        } else {
+            $dataRows = fetchAllStamps($pdo, 'tbl_Stamps');
+        }
+
+        // now parse & aggregate them
+        $aggregatedStamps = parseAndAggregate($dataRows, $config);
+        // sort them by Value (alphabetically, or numeric if all are numeric)
+        usort($aggregatedStamps, function($a, $b) {
+            // If you want numeric sort, do: 
+            // return ($a['NumericValue'] <=> $b['NumericValue']);
+            return strcasecmp($a['Value'], $b['Value']);
+        });
+    } else {
+        echo "Error: Invalid or missing section configuration.";
     }
 }
 ?>
 
 <div class="center-content">
     <img src="/7thArea.png" alt="7th Area" />
-
-    <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
+    <h1 class="my-4 text-center">7th Area QSL Bureau - Stamp Tracker</h1>
 
     <form method="POST">
         <label for="letter">Select a Section:</label>
         <select name="letter" id="letter">
-            <?php foreach ($config['sections'] as $letter => $dbPath): ?>
-                <option value="<?= htmlspecialchars($letter) ?>" <?= $selectedLetter === $letter ? 'selected' : '' ?>>
-                    <?= htmlspecialchars($letter) ?>
-                </option>
-            <?php endforeach; ?>
+            <?php
+            // If config[sections] is set, show each letter
+            if (isset($config['sections']) && is_array($config['sections'])):
+                foreach ($config['sections'] as $letter => $dbCreds):
+            ?>
+                    <option value="<?= htmlspecialchars($letter ?? '') ?>" 
+                            <?= ($selectedLetter === $letter) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($letter ?? '') ?>
+                    </option>
+            <?php
+                endforeach;
+            else:
+            ?>
+                <option value="">No sections available</option>
+            <?php endif; ?>
         </select>
 
         <label for="dateFilterCheckbox">Enable Date Filter:</label>
-        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox" onclick="toggleDateFilters()" <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
+        <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox"
+               onclick="toggleDateFilters()"
+               <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
 
         <div id="dateFilters" style="display: <?= isset($_POST['dateFilterCheckbox']) ? 'block' : 'none' ?>;">
             <label for="startDate">Start Date:</label>
-            <input type="date" id="startDate" name="startDate" value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
+            <input type="date" id="startDate" name="startDate"
+                   value="<?= htmlspecialchars($_POST['startDate'] ?? '') ?>">
 
             <label for="endDate">End Date:</label>
-            <input type="date" id="endDate" name="endDate" value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
+            <input type="date" id="endDate" name="endDate"
+                   value="<?= htmlspecialchars($_POST['endDate'] ?? '') ?>">
         </div>
 
         <button type="submit">Submit</button>
     </form>
 
     <h2>Stamp Summary</h2>
-    <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
-        <p>Total Purchase Cost All: $<?= htmlspecialchars($totals['purchaseCost'] ?? 0) ?></p>
-    <?php endif; ?>
-    <p>Total Cost of Postage Used: $<?= htmlspecialchars($totals['costOfPostage'] ?? 0) ?></p>
 
-    <?php if (!empty($data)): ?>
+    <?php if (!empty($aggregatedStamps)): ?>
         <table>
             <thead>
                 <tr>
                     <th>Value Of Stamps</th>
-                    <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
-                        <th>QTY Purchased</th>
-                    <?php endif; ?>
+                    <th>QTY Purchased</th>
                     <th>QTY Used</th>
-                    <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
-                        <th>Stamps On Hand</th>
-                        <th>Total Purchased</th>
-                    <?php endif; ?>
+                    <th>Stamps On Hand</th>
+                    <th>Total Purchased</th>
                     <th>Cost of Postage</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($data as $row): ?>
+                <?php foreach ($aggregatedStamps as $row): ?>
                     <tr>
-                        <td><?= htmlspecialchars($row['Value2']) ?></td>
-                        <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
-                            <td><?= htmlspecialchars($row['QTY Purchased']) ?></td>
-                        <?php endif; ?>
-                        <td><?= htmlspecialchars($row['QTY Used']) ?></td>
-                        <?php if (!isset($_POST['dateFilterCheckbox'])): ?>
-                            <td><?= htmlspecialchars($row['Stamps On Hand']) ?></td>
-                            <td><?= htmlspecialchars($row['Total']) ?></td>
-                        <?php endif; ?>
-                        <td><?= htmlspecialchars($row['Cost of Postage']) ?></td>
+                        <td><?= htmlspecialchars($row['Value']             ?? '') ?></td>
+                        <td><?= (int)$row['QTY Purchased'] ?></td>
+                        <td><?= (int)$row['QTY Used'] ?></td>
+                        <td><?= (int)$row['Stamps On Hand'] ?></td>
+                        <td><?= number_format($row['Total Purchased'], 2) ?></td>
+                        <td><?= number_format($row['Cost of Postage'], 2) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-    <?php else: ?>
+    <?php elseif ($selectedLetter !== null): ?>
         <p>No data found or there was an error retrieving the data.</p>
     <?php endif; ?>
 </div>
 
 <script>
 function toggleDateFilters() {
-    var dateFilterCheckbox = document.getElementById('dateFilterCheckbox');
+    var checkbox = document.getElementById('dateFilterCheckbox');
     var dateFilters = document.getElementById('dateFilters');
-    dateFilters.style.display = dateFilterCheckbox.checked ? 'block' : 'none';
+    dateFilters.style.display = checkbox.checked ? 'block' : 'none';
 }
 </script>
 

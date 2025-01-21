@@ -78,6 +78,10 @@ return [
                 'url' => '/admin/stamps.php',
                 'login' => true,
             ],
+            'Purchased' => [
+                'url' => '/admin/purchased.php',
+                'login' => true,
+            ],
             'Operator Add' => [
                 'url' => '/admin/operator-add.php',
                 'login' => true,
@@ -104,6 +108,7 @@ return [
         'Postcard' => '0.56', 
         'Forever' => '0.73', 
         'Additonal Ounce' => '0.28',
+        'Additonal Two Ounce' => '0.56',
     ],
     
 ];
