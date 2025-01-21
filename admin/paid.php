@@ -13,220 +13,249 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-*/
- // Enable error reporting for debugging
- ini_set('display_errors', 1);
- ini_set('display_startup_errors', 1);
- error_reporting(E_ALL);
- session_start();
+ */
 
- 
- $root = realpath($_SERVER["DOCUMENT_ROOT"]);
- $title = "Users to Pay Page";
- $config = include($root . '/config.php');
- 
- include("$root/backend/header.php");
- 
- if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
-     header('Location: login.php');
-     exit;
- }
- 
- ini_set('error_reporting', E_ALL);
- ini_set('display_errors', '1');
- 
- // Connect to the database
- function getPDOConnection($dbConfig) {
-     try {
-         $pdo = new PDO("mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8", $dbConfig['username'], $dbConfig['password']);
-         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-         return $pdo;
-     } catch (PDOException $e) {
-         die("Database connection failed: " . $e->getMessage());
-     }
- }
- 
- // Fetch data efficiently
- function fetchData($pdo, $tableName, $columns = '*') {
-     $escapedColumns = array_map(function ($col) {
-         return strpos($col, '`') !== false ? $col : "`$col`";
-     }, explode(',', $columns));
-     $columnsString = implode(',', $escapedColumns);
- 
-     $query = "SELECT $columnsString FROM `$tableName`";
-     try {
-         $stmt = $pdo->query($query);
-         $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
- 
-         if (empty($data)) {
-             error_log("No data found in table `$tableName`.");
-         }
- 
-         return $data;
-     } catch (PDOException $e) {
-         die("Error fetching data from `$tableName`: " . $e->getMessage());
-     }
- }
- 
- // Normalize headers
- function normalizeHeaders($headers) {
-     return array_map('trim', $headers);
- }
- 
- // Sanitize email
- function sanitizeEmail($email) {
-     return preg_replace('/#mailto:[^#]+#/', '', $email);
- }
- 
- // Initialize variables
- $selectedLetter = null;
- $filterEmail = false;
- $filterNoEmail = false;
- $cardData = [];
- $mailedData = [];
- $returnedData = [];
- $moneyReceivedData = [];
- $postalCostData = [];
- $otherCostData = [];
- $operatorData = [];
- $totalCardsReceived = 0;
- $totalCardsMailed = 0;
- $totalCardsReturned = 0;
- $totalCardsOnHand = 0;
- $totalPaid = 0;
- $totalMoneyReceived = 0;
- $totalPostalCost = 0;
- $totalOtherCost = 0;
- $totalTotal = 0;
- 
- if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
-     $selectedLetter = $_POST['letter'];
-     $filterEmail = isset($_POST['filter_email']);
-     $filterNoEmail = isset($_POST['filter_no_email']);
- 
-     if (isset($config['sections'][$selectedLetter])) {
-         $dbConfig = $config['sections'][$selectedLetter];
-         $pdo = getPDOConnection($dbConfig);
- 
-         // Fetch Card Data
-         $rawCardData = fetchData($pdo, 'tbl_CardRec', '`Call`,`CardsReceived`');
-         foreach ($rawCardData as $row) {
-             $call = $row['Call'] ?? null;
-             $cardsReceived = (int)($row['CardsReceived'] ?? 0);
-             if ($call) {
-                 $cardData[$call] = ($cardData[$call] ?? 0) + $cardsReceived;
-                 $totalCardsReceived += $cardsReceived;
-             }
-         }
- 
-         // Fetch Mailed Data
-         $rawMailedData = fetchData($pdo, 'tbl_CardM', '`Call`,`CardsMailed`,`Postal Cost`,`Other Cost`');
-         foreach ($rawMailedData as $row) {
-             $call = $row['Call'] ?? null;
-             $cardsMailed = (int)($row['CardsMailed'] ?? 0);
-             $postalCost = (float)($row['Postal Cost'] ?? 0.0);
-             $otherCost = (float)($row['Other Cost'] ?? 0.0);
-             if ($call) {
-                 $mailedData[$call] = ($mailedData[$call] ?? 0) + $cardsMailed;
-                 $postalCostData[$call] = ($postalCostData[$call] ?? 0.0) + $postalCost;
-                 $otherCostData[$call] = ($otherCostData[$call] ?? 0.0) + $otherCost;
-                 $totalCardsMailed += $cardsMailed;
-             }
-         }
- 
-         // Fetch Returned Data
-         $rawReturnedData = fetchData($pdo, 'tbl_CardRet', '`Call`,`CardsReturned`');
-         foreach ($rawReturnedData as $row) {
-             $call = $row['Call'] ?? null;
-             $cardsReturned = (int)($row['CardsReturned'] ?? 0);
-             if ($call) {
-                 $returnedData[$call] = ($returnedData[$call] ?? 0) + $cardsReturned;
-                 $totalCardsReturned += $cardsReturned;
-             }
-         }
- 
-         // Fetch Money Received Data
-         $rawMoneyReceivedData = fetchData($pdo, 'tbl_MoneyR', '`Call`,`MoneyReceived`');
-         foreach ($rawMoneyReceivedData as $row) {
-             $call = $row['Call'] ?? null;
-             $moneyReceived = (float)($row['MoneyReceived'] ?? 0.0);
-             if ($call) {
-                 $moneyReceivedData[$call] = ($moneyReceivedData[$call] ?? 0.0) + $moneyReceived;
-                 $totalPaid += $moneyReceived;
-             }
-         }
- 
-         // Fetch Operator Data
-         $rawOperatorData = fetchData($pdo, 'tbl_Operator', '`Call`,`FirstName`,`LastName`,`Mail-Inst`,`E-Mail`,`Address_1`,`City`,`State`,`Zip`');
-         foreach ($rawOperatorData as $row) {
-             $call = $row['Call'] ?? null;
-             if ($call) {
-                 $operatorData[$call] = [
-                     'firstName' => $row['FirstName'] ?? '',
-                     'lastName' => $row['LastName'] ?? '',
-                     'mailInst' => strtolower(trim($row['Mail-Inst'] ?? '')),
-                     'email' => sanitizeEmail($row['E-Mail'] ?? ''),
-                     'address' => $row['Address_1'] ?? '',
-                     'city' => $row['City'] ?? '',
-                     'state' => $row['State'] ?? '',
-                     'zip' => $row['Zip'] ?? '',
-                     'moneyReceived' => $moneyReceivedData[$call] ?? 0,
-                     'postalCost' => $postalCostData[$call] ?? 0,
-                     'otherCost' => $otherCostData[$call] ?? 0
-                 ];
-             }
-         }
- 
-         // Process Data
-         $redData = [];
-         foreach ($operatorData as $call => $data) {
-             $cardsReceived = $cardData[$call] ?? 0;
-             $cardsMailed = $mailedData[$call] ?? 0;
-             $cardsReturned = $returnedData[$call] ?? 0;
-             $cardsOnHand = $cardsReceived - $cardsMailed - $cardsReturned;
-             $totalCardsOnHand += $cardsOnHand;
- 
-             $totalCost = $data['postalCost'] + $data['otherCost'];
-             $total = $data['moneyReceived'] - $totalCost;
- 
-             if ($data['moneyReceived'] > 0 && ((!$filterEmail && !$filterNoEmail) ||
-                 ($filterEmail && !empty($data['email'])) ||
-                 ($filterNoEmail && empty($data['email'])))) {
-                 $totalMoneyReceived += $data['moneyReceived'];
-                 $totalPostalCost += $data['postalCost'];
-                 $totalOtherCost += $data['otherCost'];
-                 $totalTotal += $total;
-                 $entry = [
-                     'Call' => $call,
-                     'FirstName' => $data['firstName'],
-                     'LastName' => $data['lastName'],
-                     'CardsOnHand' => $cardsOnHand,
-                     'MoneyReceived' => $data['moneyReceived'],
-                     'TotalCost' => $totalCost,
-                     'Total' => $total,
-                     'MailInst' => $data['mailInst'],
-                     'Email' => $data['email'],
-                     'Address' => $data['address'],
-                     'City' => $data['city'],
-                     'State' => $data['state'],
-                     'Zip' => $data['zip']
-                 ];
-                 $redData[] = $entry;
-             }
-         }
- 
-         usort($redData, fn($a, $b) => strcasecmp($a['Call'], $b['Call']));
-     } else {
-         echo "Error: Invalid database configuration.";
-     }
- }
- 
- include("$root/backend/footer.php");
- ?>
- 
+session_start();
 
+// Debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
+$root = realpath($_SERVER["DOCUMENT_ROOT"]);
+$title = "Users to Pay Page";
+$config = include($root . '/config.php');
 
+include("$root/backend/header.php");
+
+// If not logged in, redirect
+if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
+    header('Location: login.php');
+    exit;
+}
+
+/**
+ * Create a new PDO connection based on $dbConfig (host, dbname, username, password).
+ */
+function getPDOConnection($dbConfig) {
+    try {
+        $dsn = "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8";
+        $pdo = new PDO($dsn, $dbConfig['username'], $dbConfig['password']);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $pdo;
+    } catch (PDOException $e) {
+        die("Database connection failed: " . $e->getMessage());
+    }
+}
+
+/**
+ * Fetch data from a table (in the given columns) and return as an array of associative rows.
+ *
+ * @param PDO    $pdo
+ * @param string $tableName   Table name, e.g. 'tbl_CardRec'
+ * @param string $columns     Comma-separated list of columns, e.g. '`Call`,`CardsReceived`'
+ *
+ * @return array Array of associative arrays. Each element = row from DB.
+ */
+function fetchData($pdo, $tableName, $columns = '*') {
+    // Wrap each column in backticks if not already
+    $escapedColumns = array_map(function ($col) {
+        $col = trim($col);
+        return (str_contains($col, '`')) ? $col : "`$col`";
+    }, explode(',', $columns));
+
+    $columnsString = implode(',', $escapedColumns);
+    $query = "SELECT $columnsString FROM `$tableName`";
+
+    try {
+        $stmt = $pdo->query($query);
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($data)) {
+            error_log("No data found in table `$tableName` for columns $columns.");
+        }
+
+        return $data;
+    } catch (PDOException $e) {
+        die("Error fetching data from `$tableName`: " . $e->getMessage());
+    }
+}
+
+/** 
+ * Sanitize email by removing '#mailto:...#' patterns.
+ */
+function sanitizeEmail($email) {
+    return preg_replace('/#mailto:[^#]+#/', '', $email);
+}
+
+// -----------------------------------------
+// Initialize variables
+// -----------------------------------------
+$selectedLetter     = null;
+$filterEmail        = false;
+$filterNoEmail      = false;
+
+$cardData           = [];
+$mailedData         = [];
+$returnedData       = [];
+$moneyReceivedData  = [];
+$postalCostData     = [];
+$otherCostData      = [];
+$operatorData       = [];
+
+$totalCardsReceived = 0;
+$totalCardsMailed   = 0;
+$totalCardsReturned = 0;
+$totalCardsOnHand   = 0;
+$totalPaid          = 0;
+$totalMoneyReceived = 0;
+$totalPostalCost    = 0;
+$totalOtherCost     = 0;
+$totalTotal         = 0;
+
+// This array will hold final rows for display
+$redData = [];
+
+// -----------------------------------------
+// Handle form submission
+// -----------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
+    $selectedLetter = $_POST['letter'];
+    $filterEmail    = isset($_POST['filter_email']);
+    $filterNoEmail  = isset($_POST['filter_no_email']);
+
+    // Ensure letter is valid in config
+    if (isset($config['sections'][$selectedLetter])) {
+        // Build PDO from config
+        $dbConfig = $config['sections'][$selectedLetter];
+        $pdo = getPDOConnection($dbConfig);
+
+        // 1) Fetch Card Data (tbl_CardRec)
+        $rawCardData = fetchData($pdo, 'tbl_CardRec', '`Call`,`CardsReceived`');
+        foreach ($rawCardData as $row) {
+            $call           = $row['Call'] ?? null;
+            $cardsReceived  = (int)($row['CardsReceived'] ?? 0);
+            if ($call) {
+                $cardData[$call] = ($cardData[$call] ?? 0) + $cardsReceived;
+                $totalCardsReceived += $cardsReceived;
+            }
+        }
+
+        // 2) Fetch Mailed Data (tbl_CardM)
+        $rawMailedData = fetchData($pdo, 'tbl_CardM', '`Call`,`CardsMailed`,`Postal Cost`,`Other Cost`');
+        foreach ($rawMailedData as $row) {
+            $call        = $row['Call']          ?? null;
+            $cardsMailed = (int)($row['CardsMailed']  ?? 0);
+            $postalCost  = (float)($row['Postal Cost'] ?? 0.0);
+            $otherCost   = (float)($row['Other Cost']  ?? 0.0);
+
+            if ($call) {
+                $mailedData[$call]      = ($mailedData[$call]      ?? 0) + $cardsMailed;
+                $postalCostData[$call]  = ($postalCostData[$call]  ?? 0) + $postalCost;
+                $otherCostData[$call]   = ($otherCostData[$call]   ?? 0) + $otherCost;
+                $totalCardsMailed       += $cardsMailed;
+            }
+        }
+
+        // 3) Fetch Returned Data (tbl_CardRet)
+        $rawReturnedData = fetchData($pdo, 'tbl_CardRet', '`Call`,`CardsReturned`');
+        foreach ($rawReturnedData as $row) {
+            $call          = $row['Call'] ?? null;
+            $cardsReturned = (int)($row['CardsReturned'] ?? 0);
+            if ($call) {
+                $returnedData[$call] = ($returnedData[$call] ?? 0) + $cardsReturned;
+                $totalCardsReturned += $cardsReturned;
+            }
+        }
+
+        // 4) Fetch Money Received Data (tbl_MoneyR)
+        $rawMoneyReceivedData = fetchData($pdo, 'tbl_MoneyR', '`Call`,`MoneyReceived`');
+        foreach ($rawMoneyReceivedData as $row) {
+            $call          = $row['Call'] ?? null;
+            $moneyReceived = (float)($row['MoneyReceived'] ?? 0.0);
+            if ($call) {
+                $moneyReceivedData[$call] = ($moneyReceivedData[$call] ?? 0.0) + $moneyReceived;
+                $totalPaid += $moneyReceived;
+            }
+        }
+
+        // 5) Fetch Operator Data (tbl_Operator)
+        $rawOperatorData = fetchData($pdo, 'tbl_Operator', '`Call`,`FirstName`,`LastName`,`Mail-Inst`,`E-Mail`,`Address_1`,`City`,`State`,`Zip`');
+        foreach ($rawOperatorData as $row) {
+            $call = $row['Call'] ?? null;
+            if ($call) {
+                $operatorData[$call] = [
+                    'firstName'     => $row['FirstName']  ?? '',
+                    'lastName'      => $row['LastName']   ?? '',
+                    'mailInst'      => strtolower(trim($row['Mail-Inst'] ?? '')),
+                    'email'         => sanitizeEmail($row['E-Mail'] ?? ''),
+                    'address'       => $row['Address_1']  ?? '',
+                    'city'          => $row['City']       ?? '',
+                    'state'         => $row['State']      ?? '',
+                    'zip'           => $row['Zip']        ?? '',
+                    'moneyReceived' => $moneyReceivedData[$call]   ?? 0,
+                    'postalCost'    => $postalCostData[$call]      ?? 0,
+                    'otherCost'     => $otherCostData[$call]       ?? 0
+                ];
+            }
+        }
+
+        // -----------------------------------------
+        // Process Data to Build $redData
+        // -----------------------------------------
+        foreach ($operatorData as $call => $data) {
+            $cardsReceived  = $cardData[$call]        ?? 0;
+            $cardsMailed    = $mailedData[$call]      ?? 0;
+            $cardsReturned  = $returnedData[$call]    ?? 0;
+            $cardsOnHand    = $cardsReceived - $cardsMailed - $cardsReturned;
+            $totalCardsOnHand += $cardsOnHand;
+
+            $totalCost = $data['postalCost'] + $data['otherCost'];
+            $total     = $data['moneyReceived'] - $totalCost;
+
+            // For demonstration, let's show only operators who have *some* money received
+            // and pass your email filters:
+            if (
+                $data['moneyReceived'] > 0 &&
+                (
+                    (!$filterEmail && !$filterNoEmail) ||
+                    ($filterEmail && !empty($data['email'])) ||
+                    ($filterNoEmail && empty($data['email']))
+                )
+            ) {
+                $totalMoneyReceived += $data['moneyReceived'];
+                $totalPostalCost    += $data['postalCost'];
+                $totalOtherCost     += $data['otherCost'];
+                $totalTotal         += $total;
+
+                $redData[] = [
+                    'Call'         => $call,
+                    'FirstName'    => $data['firstName'],
+                    'LastName'     => $data['lastName'],
+                    'CardsOnHand'  => $cardsOnHand,
+                    'MoneyReceived'=> $data['moneyReceived'],
+                    'TotalCost'    => $totalCost,
+                    'Total'        => $total,
+                    'MailInst'     => $data['mailInst'],
+                    'Email'        => $data['email'],
+                    'Address'      => $data['address'],
+                    'City'         => $data['city'],
+                    'State'        => $data['state'],
+                    'Zip'          => $data['zip']
+                ];
+            }
+        }
+
+        // Sort by Call
+        usort($redData, fn($a, $b) => strcasecmp($a['Call'], $b['Call']));
+
+    } else {
+        echo "Error: Invalid database configuration.";
+    }
+}
+?>
+
+<!-- HTML Output -->
 <div class="center-content">
     <style>
         .center-content form {
@@ -242,16 +271,25 @@ limitations under the License.
         .center-content form button {
             margin-bottom: 20px;
         }
+        table td, table th {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+        }
+        table {
+            border-collapse: collapse;
+        }
     </style>
 
     <img src="/7thArea.png" alt="7th Area" />
     <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
+
     <form method="POST">
         <label for="letter">Select a Section:</label>
         <select name="letter" id="letter">
             <?php if (isset($config['sections']) && is_array($config['sections'])): ?>
-                <?php foreach ($config['sections'] as $letter => $dbPath): ?>
-                    <option value="<?= htmlspecialchars($letter) ?>" <?= $selectedLetter === $letter ? 'selected' : '' ?>>
+                <?php foreach ($config['sections'] as $letter => $dbInfo): ?>
+                    <option value="<?= htmlspecialchars($letter) ?>"
+                            <?= $selectedLetter === $letter ? 'selected' : '' ?>>
                         <?= htmlspecialchars($letter) ?>
                     </option>
                 <?php endforeach; ?>
@@ -259,7 +297,16 @@ limitations under the License.
                 <option value="">No sections available</option>
             <?php endif; ?>
         </select>
-        <br><br>
+
+        <label for="filter_email">
+            <input type="checkbox" name="filter_email" id="filter_email" <?= $filterEmail ? 'checked' : '' ?>>
+            Show only users with email addresses
+        </label>
+
+        <label for="filter_no_email">
+            <input type="checkbox" name="filter_no_email" id="filter_no_email" <?= $filterNoEmail ? 'checked' : '' ?>>
+            Show only users without email addresses
+        </label>
 
         <button type="submit">Submit</button>
     </form>
@@ -289,9 +336,9 @@ limitations under the License.
                         <td><?= htmlspecialchars($row['Call']) ?></td>
                         <td><?= htmlspecialchars($row['FirstName']) ?></td>
                         <td><?= htmlspecialchars($row['LastName']) ?></td>
-                        <td><?= htmlspecialchars($row['CardsOnHand']) ?></td>
-                        <td><?= htmlspecialchars($row['MoneyReceived']) ?></td>
-                        <td><?= htmlspecialchars($row['TotalCost']) ?></td>
+                        <td><?= (int)$row['CardsOnHand'] ?></td>
+                        <td><?= number_format($row['MoneyReceived'], 2) ?></td>
+                        <td><?= number_format($row['TotalCost'], 2) ?></td>
                         <td><?= number_format($row['Total'], 2) ?></td>
                         <td><?= htmlspecialchars($row['Email']) ?></td>
                         <td><?= htmlspecialchars($row['Address']) ?></td>
@@ -302,9 +349,9 @@ limitations under the License.
                 <?php endforeach; ?>
                 <tr>
                     <td colspan="4"><strong>Totals</strong></td>
-                    <td><strong><?= htmlspecialchars($totalMoneyReceived) ?></strong></td>
-                    <td><strong><?= htmlspecialchars($totalPostalCost + $totalOtherCost) ?></strong></td>
-                    <td><strong><?= htmlspecialchars($totalTotal) ?></strong></td>
+                    <td><strong><?= number_format($totalMoneyReceived, 2) ?></strong></td>
+                    <td><strong><?= number_format($totalPostalCost + $totalOtherCost, 2) ?></strong></td>
+                    <td><strong><?= number_format($totalTotal, 2) ?></strong></td>
                     <td colspan="5"></td>
                 </tr>
             </tbody>
@@ -315,5 +362,6 @@ limitations under the License.
 </div>
 
 <?php
+// Footer
 include("$root/backend/footer.php");
 ?>

@@ -11,10 +11,6 @@ You may obtain a copy of the License at
 Unless required by applicable law or agreed to in writing, software
 distributed under the License.
 */
- // Enable error reporting for debugging
- ini_set('display_errors', 1);
- ini_set('display_startup_errors', 1);
- error_reporting(E_ALL);
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Cards on Hand";
