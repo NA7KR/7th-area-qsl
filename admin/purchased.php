@@ -15,14 +15,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
+namespace MoneyTracker;
+
+
+
+use PDO;
+use PDOException;
+
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
-// Debugging
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-$title = "Purchase Reader Page";
+$title = "Mount Tracker";
 
 // Ensure user is logged in
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
@@ -34,9 +40,9 @@ include("$root/backend/header.php");
 $config = include($root . '/config.php');
 
 /**
- * Get a PDO connection from config credentials: sections[$letter] => [host, dbname, username, password].
+ * Create a PDO connection using config array: ['host','dbname','username','password'].
  */
-function getPDOConnection(array $dbInfo)
+function getPDOConnection(array $dbInfo): PDO
 {
     try {
         $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
@@ -44,133 +50,103 @@ function getPDOConnection(array $dbInfo)
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         return $pdo;
     } catch (PDOException $e) {
-        die("Database connection failed: " . $e->getMessage());
+        error_log("Database connection failed: " . $e->getMessage());
+        throw new \RuntimeException("Database connection failed.");
     }
 }
 
 /**
- * Fetch all rows from tbl_Purchased, optionally date-filtered by `Date` column.
+ * Fetch all rows from tbl_Expense, optionally with date filtering.
  */
-function fetchPurchasedRows(PDO $pdo, $startDate = null, $endDate = null)
+function fetchAllExpenses(PDO $pdo, string $tableName, ?string $startDate = null, ?string $endDate = null, ?string $dateColumn = null): array
 {
-    $query = "SELECT * FROM `tbl_Purchased`";
+    $query = "SELECT * FROM `$tableName`";
     $params = [];
 
-    if ($startDate && $endDate) {
-        $query .= " WHERE `Date` BETWEEN :startDate AND :endDate";
+    if ($dateColumn && $startDate && $endDate) {
+        $query .= " WHERE `$dateColumn` BETWEEN :startDate AND :endDate";
         $params[':startDate'] = $startDate;
         $params[':endDate']   = $endDate;
     }
 
-    // Possibly sort by `ID` or `Date`
     $query .= " ORDER BY `ID` ASC";
 
     try {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return [
+            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'query' => $query,
+            'params' => $params
+        ];
     } catch (PDOException $e) {
-        die("Error fetching purchased data: " . $e->getMessage());
+        error_log("Error retrieving expense data: " . $e->getMessage());
+        throw new \RuntimeException("Error retrieving expense data.");
     }
 }
 
-/**
- * Aggregate rows by `Item`. 
- * For each unique Item:
- *   - Sum total Qty
- *   - Count how many rows had Refunded=1
- *   - Also track the distinct "Bureau", "Own", etc. if you want them
- */
-function aggregateByItem(array $rows): array
-{
-    $aggregated = [];
-
-    foreach ($rows as $r) {
-        // Access columns:
-        //  'Item', 'Qty', 'Date', 'Own', 'Refunded', 'Bureau', 'Field1'
-        $item     = $r['Item']     ?? '';
-        $qty      = (int)($r['Qty'] ?? 0);
-        $refunded = (int)($r['Refunded'] ?? 0);
-
-        // Initialize aggregator if not done
-        if (!isset($aggregated[$item])) {
-            $aggregated[$item] = [
-                'Item'          => $item,
-                'TotalQty'      => 0,    // sum of Qty
-                'RefundCount'   => 0,    // how many times refunded=1
-                'AnyBureau'     => '',   // might store one sample or something
-                'AnyOwner'      => '',   // etc.
-            ];
-        }
-
-        // Accumulate
-        $aggregated[$item]['TotalQty']    += $qty;
-        if ($refunded === 1) {
-            $aggregated[$item]['RefundCount'] += 1;
-        }
-
-        // If you want to track "Own" or "Bureau", decide how to store them
-        // e.g. store the first non-empty or a list of unique values
-        // For now, let's just store the last one we see
-        $aggregated[$item]['AnyBureau'] = $r['Bureau'] ?? '';
-        $aggregated[$item]['AnyOwner']  = $r['Own']    ?? '';
-    }
-
-    // Convert from assoc to a simple array
-    return array_values($aggregated);
-}
-
-// --------------------------------------
-// MAIN Execution Flow
-// --------------------------------------
-$selectedLetter  = $_POST['letter']   ?? null;
-$startDate       = $_POST['startDate'] ?? null; // 'YYYY-MM-DD'
-$endDate         = $_POST['endDate']   ?? null; 
-$enableDateFilter= isset($_POST['dateFilterCheckbox']);
-
-// final aggregated data
-$aggregatedData  = [];
+// ----------------- MAIN -----------------
+$selectedLetter   = null;
+$dataRows         = [];
+$queryInfo        = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($selectedLetter && isset($config['sections'][$selectedLetter])) {
-        // 1) Connect
-        $pdo = getPDOConnection($config['sections'][$selectedLetter]);
+    $selectedLetter   = $_POST['letter'] ?? null;
+    $enableDateFilter = isset($_POST['dateFilterCheckbox']);
+    $startDate        = $_POST['startDate'] ?? null;
+    $endDate          = $_POST['endDate'] ?? null;
 
-        // 2) Fetch
+    if ($selectedLetter && isset($config['sections'][$selectedLetter])) {
+        $dbInfo = $config['sections'][$selectedLetter];
+        $pdo    = getPDOConnection($dbInfo);
+
+        // Fetch data with or without date filtering
         if ($enableDateFilter && $startDate && $endDate) {
-            $rows = fetchPurchasedRows($pdo, $startDate, $endDate);
+            $result = fetchAllExpenses($pdo, 'tbl_Cash', $startDate, $endDate, 'Date');
         } else {
-            $rows = fetchPurchasedRows($pdo);
+            $result = fetchAllExpenses($pdo, 'tbl_Cash');
         }
 
-        // 3) Aggregate
-        $aggregatedData = aggregateByItem($rows);
-
-        // 4) Sort by item name (alphabetical)
-        usort($aggregatedData, function($a, $b) {
-            return strcasecmp($a['Item'], $b['Item']);
-        });
+        $dataRows = $result['data'];
+        $queryInfo = [
+            'query' => $result['query'],
+            'params' => $result['params']
+        ];
     } else {
         echo "Error: Invalid or missing section configuration.";
+    }
+}
+$totalMoneySpent = 0;
+$totalMoneyReceived = 0;
+
+// Calculate totals if dataRows is not empty
+if (!empty($dataRows)) {
+    foreach ($dataRows as $row) {
+        $totalMoneySpent += $row['MoneySpent'] ?? 0;
+        $totalMoneyReceived += $row['MoneyReceived'] ?? 0;
     }
 }
 ?>
 
 <div class="center-content">
     <img src="/7thArea.png" alt="7th Area" />
-    <h1 class="my-4 text-center">Purchases Overview</h1>
+    <h1 class="my-4 text-center">7th Area QSL Bureau - Expenses Tracker</h1>
 
     <form method="POST">
         <label for="letter">Select a Section:</label>
         <select name="letter" id="letter">
-            <?php if (isset($config['sections']) && is_array($config['sections'])): ?>
-                <?php foreach ($config['sections'] as $letter => $dbInfo): ?>
-                    <option value="<?= htmlspecialchars($letter ?? '') ?>"
+            <?php
+            if (isset($config['sections']) && is_array($config['sections'])):
+                foreach ($config['sections'] as $letter => $dbCreds):
+            ?>
+                    <option value="<?= htmlspecialchars($letter ?? '') ?>" 
                             <?= ($selectedLetter === $letter) ? 'selected' : '' ?>>
                         <?= htmlspecialchars($letter ?? '') ?>
                     </option>
-                <?php endforeach; ?>
-            <?php else: ?>
+            <?php
+                endforeach;
+            else:
+            ?>
                 <option value="">No sections available</option>
             <?php endif; ?>
         </select>
@@ -193,33 +169,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button type="submit">Submit</button>
     </form>
 
-    <?php if (!empty($aggregatedData)): ?>
-        <h2>Aggregated by Item</h2>
+    <h2>Expense Data</h2>
+
+    <?php if (!empty($dataRows)): ?>
         <table>
             <thead>
                 <tr>
-                    <th>Item</th>
-                    <th>Total Qty</th>
-                    <th>Refund Count</th>
-                    <th>Any Bureau</th>
-                    <th>Any Owner</th>
+                    <th>Money Spent</th>
+                    <th>Money Received</th>
+                    <th>Retailer</th>
+                    <th>Description</th>
+                    <th>Receipt</th>
+                    <th>Date</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($aggregatedData as $row): ?>
+                <?php foreach ($dataRows as $row): ?>
                     <tr>
-                        <td><?= htmlspecialchars($row['Item']         ?? '') ?></td>
-                        <td><?= (int)$row['TotalQty'] ?></td>
-                        <td><?= (int)$row['RefundCount'] ?></td>
-                        <td><?= htmlspecialchars($row['AnyBureau']    ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['AnyOwner']     ?? '') ?></td>
+                        <td><?= htmlspecialchars($row['MoneySpent'] ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars($row['MoneyReceived'] ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars(!empty($row['Retailer']) ? $row['Retailer'] : '') ?></td>
+                        <td><?= htmlspecialchars($row['Description'] ?? 'N/A') ?></td>
+                        <td>
+                        <?php if (!empty($row['FileName'])): ?>
+                            <a href="view_file.php?file=<?= urlencode($row['FileName']) ?>" target="_blank">View Receipt</a>
+                        <?php else: ?>
+                            <p>No file available</p>
+                        <?php endif; ?>
+                        </td>
+                        <td><?= htmlspecialchars($row['Date'] ?? 'N/A') ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+        <h3>Totals</h3>
+        <p>Total Money Spent: <?= htmlspecialchars($totalMoneySpent) ?></p>
+        <p>Total Money Received: <?= htmlspecialchars($totalMoneyReceived) ?></p>
+        <p>Net Total: <?= htmlspecialchars($totalMoneyReceived - $totalMoneySpent) ?></p>
     <?php elseif ($selectedLetter !== null): ?>
         <p>No data found or there was an error retrieving the data.</p>
     <?php endif; ?>
+
+  
 </div>
 
 <script>
