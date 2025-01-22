@@ -28,9 +28,6 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-// Enable debugging for development
-ini_set('error_reporting', E_ALL);
-ini_set('display_errors', '1');
 
 // Include PHPMailer files
 include_once("$root/backend/Exception.php");

@@ -1,5 +1,23 @@
 <?php
-namespace MountTracker;
+/*
+Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ */
+
+namespace MoneyTracker;
+
+
 
 use PDO;
 use PDOException;
@@ -38,7 +56,7 @@ function getPDOConnection(array $dbInfo): PDO
 }
 
 /**
- * Fetch all rows from tbl_Expense, optionally with date filtering on $dateColumn.
+ * Fetch all rows from tbl_Expense, optionally with date filtering.
  */
 function fetchAllExpenses(PDO $pdo, string $tableName, ?string $startDate = null, ?string $endDate = null, ?string $dateColumn = null): array
 {
@@ -56,84 +74,56 @@ function fetchAllExpenses(PDO $pdo, string $tableName, ?string $startDate = null
     try {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return [
+            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'query' => $query,
+            'params' => $params
+        ];
     } catch (PDOException $e) {
         error_log("Error retrieving expense data: " . $e->getMessage());
         throw new \RuntimeException("Error retrieving expense data.");
     }
 }
 
-/**
- * Group rows by `Cost` in PHP, summing MoneyReceived/Retailer, 
- * then calculating "Total Purchased", "Cost of Postage"
- * using config-based values (if any).
- */
-function parseAndAggregate(array $rows, array $config): array
-{
-    $aggregated = [];
-
-    foreach ($rows as $r) {
-        $cost          = $r['Cost']            ?? '';
-        $moneyReceived = (float)($r['MoneyReceived']    ?? 0);
-        $retailer      = (float)($r['Retailer']         ?? 0);
-
-        $numericValue = isset($config['mounts'][$cost]) ? (float)$config['mounts'][$cost] : (float)$cost;
-
-        if (!isset($aggregated[$cost])) {
-            $aggregated[$cost] = [
-                'Cost'           => $cost,
-                'MoneyReceived'  => 0,
-                'Retailer'       => 0,
-                'Total Purchased'=> 0.0,
-                'Cost of Postage'=> 0.0,
-                'NumericValue'   => $numericValue
-            ];
-        }
-
-        $aggregated[$cost]['MoneyReceived'] += $moneyReceived;
-        $aggregated[$cost]['Retailer']      += $retailer;
-    }
-
-    foreach ($aggregated as &$mount) {
-        $purchased = $mount['MoneyReceived'];
-        $used      = $mount['Retailer'];
-        $numeric   = $mount['NumericValue'];
-
-        $mount['Total Purchased'] = round($purchased * $numeric, 2);
-        $mount['Cost of Postage'] = round($used * $numeric, 2);
-    }
-    unset($mount);
-
-    return array_values($aggregated);
-}
-
 // ----------------- MAIN -----------------
 $selectedLetter   = null;
 $dataRows         = [];
-$aggregatedMounts = [];
+$queryInfo        = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $selectedLetter   = $_POST['letter']            ?? null;
+    $selectedLetter   = $_POST['letter'] ?? null;
     $enableDateFilter = isset($_POST['dateFilterCheckbox']);
-    $startDate        = $_POST['startDate']         ?? null;
-    $endDate          = $_POST['endDate']           ?? null;
+    $startDate        = $_POST['startDate'] ?? null;
+    $endDate          = $_POST['endDate'] ?? null;
 
     if ($selectedLetter && isset($config['sections'][$selectedLetter])) {
         $dbInfo = $config['sections'][$selectedLetter];
         $pdo    = getPDOConnection($dbInfo);
 
+        // Fetch data with or without date filtering
         if ($enableDateFilter && $startDate && $endDate) {
-            $dataRows = fetchAllExpenses($pdo, 'tbl_Expense', $startDate, $endDate, 'DateAdded');
+            $result = fetchAllExpenses($pdo, 'tbl_Cash', $startDate, $endDate, 'Date');
         } else {
-            $dataRows = fetchAllExpenses($pdo, 'tbl_Expense');
+            $result = fetchAllExpenses($pdo, 'tbl_Cash');
         }
 
-        $aggregatedMounts = parseAndAggregate($dataRows, $config);
-        usort($aggregatedMounts, function($a, $b) {
-            return strcasecmp($a['Cost'], $b['Cost']);
-        });
+        $dataRows = $result['data'];
+        $queryInfo = [
+            'query' => $result['query'],
+            'params' => $result['params']
+        ];
     } else {
         echo "Error: Invalid or missing section configuration.";
+    }
+}
+$totalMoneySpent = 0;
+$totalMoneyReceived = 0;
+
+// Calculate totals if dataRows is not empty
+if (!empty($dataRows)) {
+    foreach ($dataRows as $row) {
+        $totalMoneySpent += $row['MoneySpent'] ?? 0;
+        $totalMoneyReceived += $row['MoneyReceived'] ?? 0;
     }
 }
 ?>
@@ -179,85 +169,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button type="submit">Submit</button>
     </form>
 
-    <h2>Mount Summary</h2>
+    <h2>Expense Data</h2>
 
-    <?php if (!empty($aggregatedMounts)): ?>
+    <?php if (!empty($dataRows)): ?>
         <table>
             <thead>
                 <tr>
-                    <th>Cost</th>
-                    <th>MoneyReceived</th>
+                    <th>Money Spent</th>
+                    <th>Money Received</th>
                     <th>Retailer</th>
                     <th>Description</th>
-                    <th>Reciept</th>
+                    <th>Receipt</th>
                     <th>Date</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($aggregatedMounts as $row): ?>
+                <?php foreach ($dataRows as $row): ?>
                     <tr>
-                        <td><?= htmlspecialchars($row['Cost']             ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['MoneyReceived']    ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['Retailer']         ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['Description']      ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['Reciept']          ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['Date']             ?? '') ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php elseif ($selectedLetter !== null): ?>
-        <p>No data found or there was an error retrieving the data.</p>
-    <?php endif; ?>
-</div>
-
-<script>
-function toggleDateFilters() {
-    var checkbox = document.getElementById('dateFilterCheckbox');
-    var dateFilters = document.getElementById('dateFilters');
-    dateFilters.style.display = checkbox.checked ? 'block' : 'none';
-}
-</</div>
-
-        <button type="submit">Submit</button>
-    </form>
-
-    <h2>Mount Summary</h2>
-
-    <?php if (!empty($aggregatedMounts)): ?>
-        <table>
-            <thead>
-                <tr>
-                    <th>Cost</th>
-                    <th>MoneyReceived</th>
-                    <th>Retailer</th>
-                    <th>Description</th>
-                    <th>Reciept</th>
-                    <th>Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($aggregatedMounts as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['Cost']             ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($row['MoneyReceived']    ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($row['Retailer']         ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($row['Description']      ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars($row['MoneySpent'] ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars($row['MoneyReceived'] ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars(!empty($row['Retailer']) ? $row['Retailer'] : '') ?></td>
+                        <td><?= htmlspecialchars($row['Description'] ?? 'N/A') ?></td>
                         <td>
-                            <?php if (!empty($row['Reciept'])): ?>
-                                <a href="<?= htmlspecialchars($row['Reciept']) ?>" target="_blank">View Reciept</a>
-                            <?php else: ?>
-                                N/A
-                            <?php endif; ?>
+                        <?php if (!empty($row['FileName'])): ?>
+                            <a href="view_file.php?file=<?= urlencode($row['FileName']) ?>" target="_blank">View Receipt</a>
+                        <?php else: ?>
+                            <p>No file available</p>
+                        <?php endif; ?>
                         </td>
-                        <td><?= htmlspecialchars($row['Date']             ?? 'N/A') ?></td>
+                        <td><?= htmlspecialchars($row['Date'] ?? 'N/A') ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
+        <h3>Totals</h3>
+        <p>Total Money Spent: <?= htmlspecialchars($totalMoneySpent) ?></p>
+        <p>Total Money Received: <?= htmlspecialchars($totalMoneyReceived) ?></p>
+        <p>Net Total: <?= htmlspecialchars($totalMoneyReceived - $totalMoneySpent) ?></p>
     <?php elseif ($selectedLetter !== null): ?>
         <p>No data found or there was an error retrieving the data.</p>
     <?php endif; ?>
+
+  
 </div>
 
 <script>
@@ -267,63 +220,6 @@ function toggleDateFilters() {
     dateFilters.style.display = checkbox.checked ? 'block' : 'none';
 }
 </script>
-
-<?php
-include("$root/backend/footer.php");
-?></div>
-
-        <button type="submit">Submit</button>
-    </form>
-
-    <h2>Mount Summary</h2>
-
-    <?php if (!empty($aggregatedMounts)): ?>
-        <table>
-            <thead>
-                <tr>
-                    <th>Cost</th>
-                    <th>MoneyReceived</th>
-                    <th>Retailer</th>
-                    <th>Description</th>
-                    <th>Reciept</th>
-                    <th>Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($aggregatedMounts as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['Cost']             ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($row['MoneyReceived']    ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($row['Retailer']         ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($row['Description']      ?? 'N/A') ?></td>
-                        <td>
-                            <?php if (!empty($row['Reciept'])): ?>
-                                <a href="<?= htmlspecialchars($row['Reciept']) ?>" target="_blank">View Reciept</a>
-                            <?php else: ?>
-                                N/A
-                            <?php endif; ?>
-                        </td>
-                        <td><?= htmlspecialchars($row['Date']             ?? 'N/A') ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php elseif ($selectedLetter !== null): ?>
-        <p>No data found or there was an error retrieving the data.</p>
-    <?php endif; ?>
-</div>
-
-<script>
-function toggleDateFilters() {
-    var checkbox = document.getElementById('dateFilterCheckbox');
-    var dateFilters = document.getElementById('dateFilters');
-    dateFilters.style.display = checkbox.checked ? 'block' : 'none';
-}
-</script>
-
-<?php
-include("$root/backend/footer.php");
-?>script>
 
 <?php
 include("$root/backend/footer.php");
