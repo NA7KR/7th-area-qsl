@@ -86,7 +86,7 @@ function fetchAllExpenses(PDO $pdo, string $tableName, ?string $startDate = null
     }
 
     $query .= " ORDER BY `ID` ASC";
-echo $query;
+//echo $query;
     try {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
