@@ -203,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <label for="dateFilterCheckbox">Enable Date Filter:</label>
         <input type="checkbox" id="dateFilterCheckbox" name="dateFilterCheckbox"
-               onclick="toggleDateFilters()"
+               onclick="toggleDateFilters(); toggleColumns();"
                <?= isset($_POST['dateFilterCheckbox']) ? 'checked' : '' ?>>
 
         <div id="dateFilters" style="display: <?= isset($_POST['dateFilterCheckbox']) ? 'block' : 'none' ?>;">
@@ -226,25 +226,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <thead>
                 <tr>
                     <th>Value Of Stamps</th>
-                    <th>QTY Purchased</th>
+                    <th class="qty-purchased">QTY Purchased</th>
                     <th>QTY Used</th>
-                    <th>Stamps On Hand</th>
-                    <th>Total Purchased</th>
+                    <th class="stamps-on-hand">Stamps On Hand</th>
+                    <th class="total-purchased">Total Purchased</th>
                     <th>Cost of Postage</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($aggregatedStamps as $row): ?>
+                <?php 
+                $totalPurchased = 0;
+                $totalUsed = 0;
+                $totalOnHand = 0;
+                $totalPurchasedValue = 0.0;
+                $totalCostOfPostage = 0.0;
+
+                foreach ($aggregatedStamps as $row): 
+                    $totalPurchased += $row['QTY Purchased'];
+                    $totalUsed += $row['QTY Used'];
+                    $totalOnHand += $row['Stamps On Hand'];
+                    $totalPurchasedValue += $row['Total Purchased'];
+                    $totalCostOfPostage += $row['Cost of Postage'];
+                ?>
                     <tr>
-                        <td><?= htmlspecialchars($row['Value']             ?? '') ?></td>
-                        <td><?= (int)$row['QTY Purchased'] ?></td>
+                        <td><?= htmlspecialchars($row['Value'] ?? '') ?></td>
+                        <td class="qty-purchased"><?= (int)$row['QTY Purchased'] ?></td>
                         <td><?= (int)$row['QTY Used'] ?></td>
-                        <td><?= (int)$row['Stamps On Hand'] ?></td>
-                        <td><?= number_format($row['Total Purchased'], 2) ?></td>
+                        <td class="stamps-on-hand"><?= (int)$row['Stamps On Hand'] ?></td>
+                        <td class="total-purchased"><?= number_format($row['Total Purchased'], 2) ?></td>
                         <td><?= number_format($row['Cost of Postage'], 2) ?></td>
                     </tr>
                 <?php endforeach; ?>
             </tbody>
+            <tfoot>
+                <tr>
+                    <th>Total</th>
+                    <th class="qty-purchased"><?= (int)$totalPurchased ?></th>
+                    <th><?= (int)$totalUsed ?></th>
+                    <th class="stamps-on-hand"><?= (int)$totalOnHand ?></th>
+                    <th class="total-purchased"><?= number_format($totalPurchasedValue, 2) ?></th>
+                    <th><?= number_format($totalCostOfPostage, 2) ?></th>
+                </tr>
+            </tfoot>
         </table>
     <?php elseif ($selectedLetter !== null): ?>
         <p>No data found or there was an error retrieving the data.</p>
@@ -257,6 +280,17 @@ function toggleDateFilters() {
     var dateFilters = document.getElementById('dateFilters');
     dateFilters.style.display = checkbox.checked ? 'block' : 'none';
 }
+
+function toggleColumns() {
+    var checkbox = document.getElementById('dateFilterCheckbox');
+    var columns = document.querySelectorAll('.qty-purchased, .stamps-on-hand, .total-purchased');
+    columns.forEach(function(column) {
+        column.style.display = checkbox.checked ? 'none' : 'table-cell';
+    });
+}
+
+// Initial call to set the correct column visibility on page load
+toggleColumns();
 </script>
 
 <?php
