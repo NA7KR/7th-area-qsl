@@ -127,7 +127,7 @@ function sanitizeEmail($email)
 function sendEmail($to, $call, $cardsOnHand, $emailConfig)
 {
     $mail = new PHPMailer(true);
-    $debugEmail = 'krr001@gmail.com';
+    $debugEmail = $emailConfig['debug_email'];
 
     if ($emailConfig['testing']) {
         // Override actual recipient
@@ -146,7 +146,7 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig)
         $mail->Port       = $emailConfig['port'];
 
         // Set email details
-        $mail->setFrom('ars.na7kr@na7kr.us', 'Kevin Roberts ARRL 7th district QSL sorter for the F section');
+        $mail->setFrom($emailConfig['from'], $emailConfig['from_name']);
         $mail->addAddress($to);
         $mail->isHTML($emailConfig['send_html']);
         $mail->Subject = 'Incoming DX Card(s) Notification';
@@ -154,25 +154,31 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig)
         // Email body
         $mail->Body = "
             <img src='cid:7thArea' alt='7th Area' /><br>
-            Hello $call,<br><br>
-            My name is Kevin Roberts NA7KR. I am the ARRL 7th district QSL sorter for the F section.<br>
+            Hello <b>$call</b>,<br><br>
+            My name is {$emailConfig['myname']} {$emailConfig['mycall']}. I am the ARRL 7th district QSL sorter for the {$emailConfig['sections']}.<br>
             I am writing you today because you have incoming DX card(s) in the incoming QSL bureau. 
-            Cards on hand: $cardsOnHand.<br>
+            Cards on hand: <b>$cardsOnHand</b>.<br>
             If you would like to receive these cards, please go to 
             <a href='https://wvdxc.org/pay-online-for-credits/'>pay online for credits</a> or use the mail-in form.<br>
-            Please respond within 30 days, or else your account will be marked discard all incoming bureau cards.<br><br>
+            <span style='color:red; font-weight:bold;'>Please respond within 30 days</span>, or else your account will be marked discard all incoming bureau cards.<br><br>
             If you would NOT like to receive incoming bureau cards, please let me know.<br><br>
-            If you have any questions or concerns, please reply to this email or email me at ars.na7kr@na7kr.us.<br><br>
+            If you have any questions or concerns, please reply to this email or email me at {$emailConfig['from']}.<br><br>
             You can read more about the 7th district QSL bureau at 
-            <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.
+            <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.<br><br>
+            Best regards,<br>
+            {$emailConfig['myname']} {$emailConfig['mycall']}<br>
+            ARRL 7th District QSL Sorter – {$emailConfig['sections']}<br>
+            {$emailConfig['from']}
         ";
+
+
 
         // Embed the 7thArea.png image in the email
         $mail->addEmbeddedImage('../7thArea.png', '7thArea');
 
         // Headers
-        $mail->addCustomHeader('Return-Receipt-To', 'ars.na7kr@na7kr.us');
-        $mail->addCustomHeader('Disposition-Notification-To', 'ars.na7kr@na7kr.us');
+        $mail->addCustomHeader('Return-Receipt-To', $emailConfig['from']);
+        $mail->addCustomHeader('Disposition-Notification-To', $emailConfig['from']);
 
         // Send
         $mail->send();

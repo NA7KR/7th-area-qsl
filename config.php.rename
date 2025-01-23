@@ -19,14 +19,20 @@ return [
     'unpaid_threshold' => .85,
     // Email configuration
     'email' => [
-        'sender' => 'email',
+     'sender' => 'kevin@na7kr.us',
         'password' => 'password',
         'server' => 'server',
         'port' => 465,
         'testing' => false, // Debug mode false
         'debugging' => false,
+        'debug_email' => 'mytest@gmail.com',
         'send_html' => true,
         'testing' => false, // Set this to true to use the debug email
+        'from'  => 'ars.na7kr@na7kr.us',
+        'from_name' => 'Kevin Roberts ARRL 7th district QSL sorter for the F and O sections',
+        'sections' => 'F and O sections',
+        'mycall' => 'mycall',
+        'myname' => 'Kevin Roberts',
     ],
     // User credentials
     'credentials' => [
