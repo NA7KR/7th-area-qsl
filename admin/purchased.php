@@ -28,7 +28,7 @@ $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-$title = "Mount Tracker";
+$title = "Money Tracker";
 
 // Ensure user is logged in
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {

@@ -28,20 +28,21 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 }
 
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 $file = $_GET['file'] ?? null;
+//echo  "File  = $file ";
 
 if ($file) {
-    $filePath = realpath($file); // Ensure secure handling of the file
+    $filePath = realpath("images/$file"); // Ensure secure handling of the file
+
+//    echo  "File Path = $filePath ";
+  
+
     if ($filePath && file_exists($filePath)) {
         $fileType = mime_content_type($filePath);
 
         // Debugging information
-        echo "<!-- File Path: $filePath -->";
-        echo "<!-- File Type: $fileType -->";
+  //      echo  $filePath ;
+  //      echo  $fileType ;
 
         // Check if it's a supported file type (PDF or JPG/PNG)
         if (in_array($fileType, ['application/pdf', 'image/jpeg', 'image/png'])) {
