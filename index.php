@@ -15,34 +15,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-$root = realpath($_SERVER["DOCUMENT_ROOT"]);
-$title = "Start Page";
+$documentRoot = realpath($_SERVER["DOCUMENT_ROOT"]);
+$title        = "Start Page";
 
 // Load configuration
-$config = include('config.php');
+$config = include 'config.php';
 
 // Include header
-$headerPath = "$root/backend/header.php";
+$headerPath = $documentRoot . "/backend/header.php";
 if (file_exists($headerPath)) {
-    include($headerPath);
+    include $headerPath;
 } else {
     echo "Header file not found!";
     exit;
 }
 ?>
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($title); ?></title>
-    <link rel="stylesheet" href="/path/to/your/css/styles.css">
-</head>
-<body>
-
 <div class="center-content">
-    <img src="/7thArea.png" alt="7th Area" />
+    <img src="/7thArea.png" alt="7th Area Logo">
 
     <h1 class="my-4 text-center">7th Area QSL Bureau Sorters</h1>
 
@@ -57,37 +46,49 @@ if (file_exists($headerPath)) {
         </thead>
         <tbody>
             <?php
-            $sorters = [
-                ['A', 'Allen Lewey', 'K7ABL', 'alewey@msn.com'],
-                ['B', 'Kevin Bier', 'K7VI', 'ars.k7vi@gmail.com'],
-                ['C', 'Ron Vincent', 'WJ7R', 'wj7r@comcast.net'],
-                ['D', 'Steve Sterling', 'WA7DUH', 'wa7duh@gmail.com'],
-                ['E', 'Mike Willis', 'N6LO', 'N6LO7Buro@yahoo.com'],
-                ['F', 'Kevin and Carrigan Roberts', 'NA7KR', 'ars.na7kr@na7kr.us'],
-                ['G', 'Rick Smith', 'KT7G', 'zk1ttg@gmail.com'],
-                ['H', 'Howard Saxion', 'WX7HS', 'howardsaxion@mac.com'],
-                ['I', 'Jason Dinsmore', 'K7BPM', 'k7bpm@dinjas.com'],
-                ['J', 'Jim Fenstermaker', 'K9JF', 'k9jf@k9jf.com'],
-                ['K', 'Craig Cook', 'N7OR', 'qsl7thk@gmail.com'],
-                ['L', 'Casey Baldwin', 'WC7L', 'ARS.WC7L@gmail.com'],
-                ['M', 'Brian Phipps', 'W7BDP', 'brian.w7bdp@gmail.com'],
-                ['N', 'Frank Gruber', 'KB7NJV', 'gruberfrankr@comcast.net'],
+            // Array of sorters: [Section, Name, Call, Email]
+            $sortersList = [
+                ['A', 'Allen Lewey',           'K7ABL',      'alewey@msn.com'],
+                ['B', 'Kevin Bier',            'K7VI',       'ars.k7vi@gmail.com'],
+                ['C', 'Ron Vincent',           'WJ7R',       'wj7r@comcast.net'],
+                ['D', 'Steve Sterling',        'WA7DUH',     'wa7duh@gmail.com'],
+                ['E', 'Mike Willis',           'N6LO',       'N6LO7Buro@yahoo.com'],
+                ['F', 'Kevin and Carrigan Roberts', 'NA7KR',  'ars.na7kr@na7kr.us'],
+                ['G', 'Rick Smith',            'KT7G',       'zk1ttg@gmail.com'],
+                ['H', 'Howard Saxion',         'WX7HS',      'howardsaxion@mac.com'],
+                ['I', 'Jason Dinsmore',        'K7BPM',      'k7bpm@dinjas.com'],
+                ['J', 'Jim Fenstermaker',      'K9JF',       'k9jf@k9jf.com'],
+                ['K', 'Craig Cook',            'N7OR',       'qsl7thk@gmail.com'],
+                ['L', 'Casey Baldwin',         'WC7L',       'ARS.WC7L@gmail.com'],
+                ['M', 'Brian Phipps',          'W7BDP',      'brian.w7bdp@gmail.com'],
+                ['N', 'Frank Gruber',          'KB7NJV',     'gruberfrankr@comcast.net'],
                 ['O', 'Kevin and Carrigan Roberts', 'NA7KR', 'ars.na7kr@na7kr.us'],
-                ['Q', 'Bernd Peters', 'KB7AK', 'bernd1peters@gmail.com'],
-                ['R', 'Rick Aragon', 'NE7O', 'ne7o@yahoo.com'],
-                ['P', 'Marilyn Miller', 'K7YL', 'k7yl.08@gmail.com'],
-                ['S', 'Bob Norin', 'W7YAQ', 'w7yaq@arrl.net'],
-                ['T', 'John Gohndrone', 'N7TT', 'n7tt@tds.net'],
-                ['U', 'Delvin Bunton', 'NS7U', 'drbunton@comcast.net'],
-                ['V', 'Scott Rosenfeld', 'N7JI', 'ars.n7ji@gmail.com'],
-                ['W', 'Don Tucker', 'W7WLL', 'w7wll@arrl.net'],
-                ['X', 'Dave Tucker', 'KA6BIM', 'ka6bim@arrl.net'],
-                ['Y', 'Jim Cassidy', 'KI7Y', 'ki7y@arrl.net'],
-                ['Z', 'Al Rovner', 'K7AR', 'k7ar@comcast.net'],
+                ['Q', 'Bernd Peters',          'KB7AK',      'bernd1peters@gmail.com'],
+                ['R', 'Rick Aragon',           'NE7O',       'ne7o@yahoo.com'],
+                ['P', 'Marilyn Miller',        'K7YL',       'k7yl.08@gmail.com'],
+                ['S', 'Bob Norin',             'W7YAQ',      'w7yaq@arrl.net'],
+                ['T', 'John Gohndrone',        'N7TT',       'n7tt@tds.net'],
+                ['U', 'Delvin Bunton',         'NS7U',       'drbunton@comcast.net'],
+                ['V', 'Scott Rosenfeld',       'N7JI',       'ars.n7ji@gmail.com'],
+                ['W', 'Don Tucker',            'W7WLL',      'w7wll@arrl.net'],
+                ['X', 'Dave Tucker',           'KA6BIM',     'ka6bim@arrl.net'],
+                ['Y', 'Jim Cassidy',           'KI7Y',       'ki7y@arrl.net'],
+                ['Z', 'Al Rovner',             'K7AR',       'k7ar@comcast.net'],
             ];
 
-            foreach ($sorters as $sorter) {
-                echo "<tr><td>{$sorter[0]}</td><td>{$sorter[1]}</td><td>{$sorter[2]}</td><td>{$sorter[3]}</td></tr>";
+            foreach ($sortersList as $sorter) {
+                // Escape each field before outputting to HTML
+                $section = htmlspecialchars($sorter[0]);
+                $name    = htmlspecialchars($sorter[1]);
+                $call    = htmlspecialchars($sorter[2]);
+                $email   = htmlspecialchars($sorter[3]);
+
+                echo "<tr>
+                        <td>{$section}</td>
+                        <td>{$name}</td>
+                        <td>{$call}</td>
+                        <td>{$email}</td>
+                      </tr>";
             }
             ?>
         </tbody>
@@ -96,13 +97,12 @@ if (file_exists($headerPath)) {
 
 <?php
 // Include footer
-$footerPath = "$root/backend/footer.php";
+$footerPath = $documentRoot . "/backend/footer.php";
 if (file_exists($footerPath)) {
-    include($footerPath);
+    include $footerPath;
 } else {
     echo "Footer file not found!";
 }
 ?>
-
 </body>
 </html>
