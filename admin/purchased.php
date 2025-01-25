@@ -197,7 +197,8 @@ if (!empty($dataRows)) {
                             <p>No file available</p>
                         <?php endif; ?>
                         </td>
-                        <td><?= htmlspecialchars($row['Date'] ?? 'N/A') ?></td>
+                    <td><?= htmlspecialchars(!empty($row['Date']) ? (new \DateTime($row['Date']))->format('Y-m-d') : 'N/A') ?></td>
+
                     </tr>
                 <?php endforeach; ?>
             </tbody>
