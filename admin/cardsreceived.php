@@ -14,7 +14,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
  */
-
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
@@ -48,62 +47,6 @@ function getPDOConnection(array $dbInfo)
     }
 }
 
-/**
- * Fetch data from the database.
- *
- * @param PDO $pdo
- * @param string $tableName
- * @param array $columns
- * @return array
- */
-function fetchData(PDO $pdo, $tableName, $columns)
-{
-    $columnList = implode(',', $columns);
-    $stmt = $pdo->query("SELECT $columnList FROM $tableName");
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-/**
- * Process raw data into a key-value array.
- *
- * @param array $rawData
- * @param array $keyIndexes
- * @return array
- */
-function processData($rawData, $keyIndexes)
-{
-    $data = [];
-    foreach ($rawData as $row) {
-        $key = $row[$keyIndexes['keyName']];
-        $value = $row[$keyIndexes['valueName']];
-        $data[$key] = $value;
-    }
-    return $data;
-}
-
-/**
- * Get processed data from the database.
- *
- * @param PDO $pdo
- * @param string $tableName
- * @param array $keyIndexes
- * @return array
- */
-function getData(PDO $pdo, $tableName, $keyIndexes)
-{
-    $rawData = fetchData($pdo, $tableName, [$keyIndexes['keyName'], $keyIndexes['valueName']]);
-    if (!empty($rawData)) {
-        return processData($rawData, $keyIndexes);
-    }
-    return [];
-}
-
-/**
- * Get the next ID from the tbl_CardRec table.
- *
- * @param PDO $pdo
- * @return int
- */
 function getNextID(PDO $pdo)
 {
     try {
@@ -116,8 +59,7 @@ function getNextID(PDO $pdo)
     }
 }
 
-// Establish PDO connection
-$pdo = null;
+// If the user submitted the form to select a letter:
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $selectedLetter = $_POST['letter'] ?? null;
     
@@ -127,86 +69,214 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ID = getNextID($pdo);
     }
 }
-
 ?>
 
-    <div class="center-content">
-        <img src="/7thArea.png" alt="7th Area" />
-        <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Received</h1>
+<div class="center-content">
+    <img src="/7thArea.png" alt="7th Area" />
+    <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Received</h1>
 
-        <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
-            <label for="letter">Select a Section:</label>
-            <select name="letter" id="letter" class="form-control">
-                <option value="F" <?php echo ($selectedLetter === 'F') ? 'selected' : ''; ?>>F</option>
-                <option value="O" <?php echo ($selectedLetter === 'O') ? 'selected' : ''; ?>>O</option>
-            </select>
-            <button type="submit">Select</button>
-        </form>
-        <br>
-        <div style="display: grid; grid-template-columns: auto 1fr; gap: 10px; width: 400px; padding: 10px; border: 1px solid;">
-            <!-- ID -->
-            <label for="ID" style="text-align: right; font-weight: bold;">ID:</label>
-            <input type="text" id="ID" name="ID" required readonly class="form-control readonly"
-                   value="<?php echo isset($ID) ? htmlspecialchars($ID) : ''; ?>">
+    <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
+        <label for="letter">Select a Section:</label>
+        <select name="letter" id="letter" class="form-control">
+            <option value="F" <?php echo ($selectedLetter === 'F') ? 'selected' : ''; ?>>F</option>
+            <option value="O" <?php echo ($selectedLetter === 'O') ? 'selected' : ''; ?>>O</option>
+            <!-- Add more letters as needed -->
+        </select>
+        <button type="submit">Select</button>
+    </form>
+    <br>
 
-            <!-- Call -->
-            <label for="Call" style="text-align: right; font-weight: bold;">Call:</label>
-            <input type="text" id="Call" name="Call" required class="form-control"
-                   value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>">
+    <div style="display: grid; grid-template-columns: auto 1fr; gap: 10px; width: 400px; padding: 10px; border: 1px solid;">
+        <!-- ID -->
+        <label for="ID" style="text-align: right; font-weight: bold;">ID:</label>
+        <input
+            type="text"
+            id="ID"
+            name="ID"
+            required
+            readonly
+            class="form-control readonly"
+            value="<?php echo isset($ID) ? htmlspecialchars($ID) : ''; ?>"
+        >
 
-            <!-- Cards Received -->
-            <label for="CardsReceived" style="text-align: right; font-weight: bold;">Cards Received:</label>
-            <input type="text" id="CardsReceived" name="CardsReceived" required class="form-control"
-                   value="<?php echo isset($CardsReceived) ? htmlspecialchars($CardsReceived) : ''; ?>">
+        <!-- Call -->
+        <label for="Call" style="text-align: right; font-weight: bold;">Call:</label>
+        <input
+            type="text"
+            id="Call"
+            name="Call"
+            required
+            class="form-control"
+            value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
+        >
 
-            <!-- Date Received -->
-            <label for="DateReceived" style="text-align: right; font-weight: bold;">Date Received:</label>
-            <input type="text" id="DateReceived" name="DateReceived" required class="form-control"
-                   value="<?php echo isset($DateReceived) ? htmlspecialchars($DateReceived) : ''; ?>">
+        <!-- Cards Received -->
+        <label for="CardsReceived" style="text-align: right; font-weight: bold;">Cards Received:</label>
+        <input
+            type="text"
+            id="CardsReceived"
+            name="CardsReceived"
+            required
+            class="form-control"
+            value="<?php echo isset($CardsReceived) ? htmlspecialchars($CardsReceived) : ''; ?>"
+        >
 
-            <!-- New Call -->
-            <label for="NewCall" style="text-align: right; font-weight: bold;">New Call:</label>
-            <input type="text" id="NewCall" name="NewCall" required class="form-control"
-                   value="<?php echo isset($NewCall) ? htmlspecialchars($NewCall) : ''; ?>">
+        <!-- Date Received -->
+        <label for="DateReceived" style="text-align: right; font-weight: bold;">Date Received:</label>
+        <input
+            type="date"
+            id="DateReceived"
+            name="DateReceived"
+            required
+            class="form-control"
+            value="<?php echo isset($DateReceived) ? htmlspecialchars($DateReceived) : date('Y-m-d'); ?>"
+        >
 
-            <!-- Status -->
-            <label for="Status" style="text-align: right; font-weight: bold;">Status:</label>
-            <select name="status" id="status">
-                <!-- Optional: A placeholder option -->
-                <option value="" disabled selected>Select Status</option>
+        <!-- Status (readonly) -->
+        <label for="Status" style="text-align: right; font-weight: bold;">Status:</label>
+        <select
+            id="Status"
+            name="Status"
+            required
+            readonly
+            class="form-control"
+        >
+            <!-- Options will be inserted by fetch from fetch_status.php -->
+        </select>
 
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="New">New</option>
-                <option value="Pending">Pending</option>
-                <option value="Forward">Forward</option>
-                <option value="QSL Mgr">QSL Mgr</option>
-                <option value="Trustee">Trustee</option>
-                <option value="VIA">VIA</option>
-                <option value="NOTIFIED">NOTIFIED</option>
-                <option value="Licensee Expired">Licensee Expired</option>
-                <option value="AK Buro">AK Buro</option>
-                <option value="CLUB">CLUB</option>
-                <option value="Address not available">Address not available</option>
-                <option value="DNU-DESTROY">DNU-DESTROY</option>
-                <option value="License Expired">License Expired</option>
-                <option value="Reissue">Reissue</option>
-                <option value="SILENT KEY">SILENT KEY</option>
-                <option value="Active_DIFF_Address">Active_DIFF_Address</option>
-            </select>
+        <!-- Mail-Inst (readonly) -->
+        <label for="Mail-Inst" style="text-align: right; font-weight: bold;">Mail-Inst:</label>
+        <select
+            id="Mail-Inst"
+            name="Mail-Inst"
+            required
+            readonly
+            class="form-control"
+        >
+            <!-- Options will be inserted by fetch from fetch_mail_inst.php -->
+        </select>
 
-            <!-- Mail-Inst -->
-            <label for="Mail-Inst" style="text-align: right; font-weight: bold;">Mail-Inst:</label>
-            <select id="Mail-Inst" name="Mail-Inst" required class="form-control">
-                <option value="option1">Option 1</option>
-                <option value="option2">Option 2</option>
-                <option value="option3">Option 3</option>
-            </select>
-        </div>
+        <!-- Account Balance (readonly) -->
+        <label for="AccountBalance" style="text-align: right; font-weight: bold;">Account Balance:</label>
+        <input
+            type="text"
+            id="AccountBalance"
+            name="AccountBalance"
+            required
+            readonly
+            class="form-control"
+            value="<?php echo isset($AccountBalancee) ? htmlspecialchars($AccountBalancee) : ''; ?>"
+        >
     </div>
+</div>
 
-    
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const callInput         = document.getElementById('Call');
+    const letterSelect      = document.getElementById('letter');
+    const statusDropdown    = document.getElementById('Status');
+    const mailInstDropdown  = document.getElementById('Mail-Inst');
+    const accountBalanceBox = document.getElementById('AccountBalance');
 
-<?php
-include("$root/backend/footer.php");
-?>
+    // 1) Update Status
+    async function updateStatusDropdown() {
+        const call = callInput.value.trim();
+        const letter = letterSelect.value;
+
+        if (!call) {
+            statusDropdown.innerHTML = '<option>Enter a call sign</option>';
+            return;
+        }
+
+        try {
+            const response = await fetch('fetch_status.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.statusText}`);
+            }
+
+            // fetch_status.php returns raw <option> tags
+            const optionHtml = await response.text();
+            statusDropdown.innerHTML = optionHtml;
+        } catch (error) {
+            console.error('Failed to load status:', error);
+            statusDropdown.innerHTML = '<option>Error loading Status</option>';
+        }
+    }
+
+    // 2) Update Mail-Inst
+    async function updateMailInstDropdown() {
+        const call = callInput.value.trim();
+        const letter = letterSelect.value;
+
+        if (!call) {
+            mailInstDropdown.innerHTML = '<option>Enter a call sign</option>';
+            return;
+        }
+
+        try {
+            const response = await fetch('fetch_mail_inst.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.statusText}`);
+            }
+
+            // fetch_mail_inst.php returns raw <option> tags
+            const optionHtml = await response.text();
+            mailInstDropdown.innerHTML = optionHtml;
+        } catch (error) {
+            console.error('Failed to load mail instructions:', error);
+            mailInstDropdown.innerHTML = '<option>Error loading Mail-Inst</option>';
+        }
+    }
+
+    // 3) Update AccountBalance
+    async function updateAccountBalance() {
+        const call = callInput.value.trim();
+        const letter = letterSelect.value;
+
+        if (!call) {
+            // If no call is entered, skip the request
+            accountBalanceBox.value = ''; 
+            return;
+        }
+
+        try {
+            const response = await fetch('fetch_account_balance.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.statusText}`);
+            }
+
+            // fetch_account_balance.php should return just a text (the numeric or string balance)
+            const balanceText = await response.text();
+            accountBalanceBox.value = balanceText;
+
+        } catch (error) {
+            console.error('Failed to load account balance:', error);
+            accountBalanceBox.value = 'Error';
+        }
+    }
+
+    // Trigger all updates on "blur" of the Call field
+    callInput.addEventListener('blur', () => {
+        updateStatusDropdown();
+        updateMailInstDropdown();
+        updateAccountBalance();  // <-- add the new call here
+    });
+});
+</script>
+
+<?php include("$root/backend/footer.php"); ?>
