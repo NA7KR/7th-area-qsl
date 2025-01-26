@@ -21,6 +21,9 @@ error_reporting(E_ALL);
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $config = include($root . '/config.php');
 
+// Return raw HTML <option> tags
+header('Content-Type: text/html; charset=utf-8');
+
 /**
  * Create a PDO connection using config array: ['host','dbname','username','password'].
  */
@@ -36,36 +39,34 @@ function getPDOConnection(array $dbInfo)
     }
 }
 
-// We'll return HTML <option> tags
-header('Content-Type: text/html; charset=utf-8');
+$letter = $_POST['letter'] ?? null;
+$call   = $_POST['call']   ?? null;
 
-$selectedLetter = $_POST['letter'] ?? null; // must match the 'letter=' in the fetch body
-$call           = $_POST['call']   ?? null;
-
-// Validate letter
-if (!$selectedLetter || !isset($config['sections'][$selectedLetter])) {
+if (!$letter || !isset($config['sections'][$letter])) {
     echo '<option>Invalid or missing letter in request</option>';
     exit;
 }
 
 // Create PDO connection
-$dbInfo = $config['sections'][$selectedLetter];
+$dbInfo = $config['sections'][$letter];
 $pdo = getPDOConnection($dbInfo);
 
 if ($call) {
-    $stmt = $pdo->prepare("SELECT `Status` FROM `tbl_Operator` WHERE `Call` = :call");
+    // Suppose we store mail instructions in "tbl_Operator" or another table.
+    // Let's assume there's a column "MailInst" in "tbl_Operator" or "tbl_Recipient", etc.
+    // For example:
+    $stmt = $pdo->prepare("SELECT `Mail-Inst` FROM `tbl_Operator` WHERE `Call` = :call");
     $stmt->execute(['call' => $call]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if ($results) {
         foreach ($results as $row) {
-            // Escape the status to prevent any HTML injection
-            $status = htmlspecialchars($row['Status']);
-            echo "<option value='{$status}'>{$status}</option>";
+            $mailInst = htmlspecialchars($row['Mail-Inst']);
+            echo htmlspecialchars($mailInst); // Plain text output
         }
     } else {
-        echo "<option>No results found</option>";
+        echo "No  found";
     }
 } else {
-    echo "<option>Invalid input</option>";
+    echo "No  found";
 }

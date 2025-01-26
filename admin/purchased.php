@@ -192,7 +192,7 @@ if (!empty($dataRows)) {
                         <td><?= htmlspecialchars($row['Description'] ?? 'N/A') ?></td>
                         <td>
                         <?php if (!empty($row['FileName'])): ?>
-                            <a href="view_file.php?file=<?= urlencode($row['FileName']) ?>" target="_blank">View Receipt</a>
+                            <a href="../backend/view_file.php?file=<?= urlencode($row['FileName']) ?>" target="_blank">View Receipt</a>
                         <?php else: ?>
                             <p>No file available</p>
                         <?php endif; ?>

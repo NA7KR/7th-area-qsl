@@ -32,7 +32,7 @@ $file = $_GET['file'] ?? null;
 //echo  "File  = $file ";
 
 if ($file) {
-    $filePath = realpath("images/$file"); // Ensure secure handling of the file
+    $filePath = realpath("../admin/images/$file"); // Ensure secure handling of the file
 
 //    echo  "File Path = $filePath ";
   

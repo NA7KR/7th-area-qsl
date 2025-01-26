@@ -313,6 +313,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
 
     <?php if (!empty($redData)): ?>
         <h2>Section <?= htmlspecialchars($selectedLetter) ?></h2>
+        <div class="table-scroll">
+
         <table>
             <thead>
                 <tr>

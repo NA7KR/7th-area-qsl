@@ -14,6 +14,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
  */
+print_r($_POST);
+
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
@@ -60,7 +62,7 @@ function getNextID(PDO $pdo)
 }
 
 // If the user submitted the form to select a letter:
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])) {
     $selectedLetter = $_POST['letter'] ?? null;
     
     if ($selectedLetter && isset($config['sections'][$selectedLetter])) {
@@ -70,45 +72,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 <div class="center-content">
     <img src="/7thArea.png" alt="7th Area" />
     <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Received</h1>
 
+    <!-- 1) Form for selecting the section (letter) -->
     <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
+        <input type="hidden" name="letter_select_form" value="1">
+
         <label for="letter">Select a Section:</label>
         <select name="letter" id="letter" class="form-control">
             <option value="F" <?php echo ($selectedLetter === 'F') ? 'selected' : ''; ?>>F</option>
             <option value="O" <?php echo ($selectedLetter === 'O') ? 'selected' : ''; ?>>O</option>
-            <!-- Add more letters as needed -->
         </select>
         <button type="submit">Select</button>
     </form>
-    <br>
 
+    <!-- 2) Data entry fields -->
     <div style="display: grid; grid-template-columns: auto 1fr; gap: 10px; width: 400px; padding: 10px; border: 1px solid;">
         <!-- ID -->
-        <label for="ID" style="text-align: right; font-weight: bold;">ID:</label>
-        <input
-            type="text"
-            id="ID"
-            name="ID"
-            required
-            readonly
-            class="form-control readonly"
-            value="<?php echo isset($ID) ? htmlspecialchars($ID) : ''; ?>"
-        >
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <label for="ID" style="text-align: right; font-weight: bold;">ID:</label>
+            <label><?php echo isset($ID) ? htmlspecialchars($ID) : ''; ?></label>
+        </div>
 
         <!-- Call -->
-        <label for="Call" style="text-align: right; font-weight: bold;">Call:</label>
-        <input
-            type="text"
-            id="Call"
-            name="Call"
-            required
-            class="form-control"
-            value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
-        >
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <label for="Call" style="text-align: right; font-weight: bold;">Call:</label>
+            <input
+                type="text"
+                id="Call"
+                name="Call"
+                required
+                class="form-control"
+                value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
+                style="flex: 1;"
+            >
+        </div>
 
         <!-- Cards Received -->
         <label for="CardsReceived" style="text-align: right; font-weight: bold;">Cards Received:</label>
@@ -132,64 +132,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             value="<?php echo isset($DateReceived) ? htmlspecialchars($DateReceived) : date('Y-m-d'); ?>"
         >
 
-        <!-- Status (readonly) -->
+        <!-- Status (Label) -->
         <label for="Status" style="text-align: right; font-weight: bold;">Status:</label>
-        <select
-            id="Status"
-            name="Status"
-            required
-            readonly
-            class="form-control"
-        >
-            <!-- Options will be inserted by fetch from fetch_status.php -->
-        </select>
+        <label id="Status"><?php echo isset($Status) ? htmlspecialchars($Status) : 'N/A'; ?></label>
 
-        <!-- Mail-Inst (readonly) -->
+        <!-- Mail-Inst (Label) -->
         <label for="Mail-Inst" style="text-align: right; font-weight: bold;">Mail-Inst:</label>
-        <select
-            id="Mail-Inst"
-            name="Mail-Inst"
-            required
-            readonly
-            class="form-control"
-        >
-            <!-- Options will be inserted by fetch from fetch_mail_inst.php -->
-        </select>
+        <label id="Mail-Inst"><?php echo isset($MailInst) ? htmlspecialchars($MailInst) : 'N/A'; ?></label>
 
-        <!-- Account Balance (readonly) -->
+        <!-- Account Balance (Label) -->
         <label for="AccountBalance" style="text-align: right; font-weight: bold;">Account Balance:</label>
-        <input
-            type="text"
-            id="AccountBalance"
-            name="AccountBalance"
-            required
-            readonly
-            class="form-control"
-            value="<?php echo isset($AccountBalancee) ? htmlspecialchars($AccountBalancee) : ''; ?>"
-        >
+        <label id="AccountBalance"><?php echo isset($AccountBalance) ? htmlspecialchars($AccountBalance) : 'N/A'; ?></label>
     </div>
+
+    <!-- 3) Second form to submit letter, call, CardsReceived to a new page -->
+    <form method="POST" action="../backend/submit_cards.php" style="margin-top: 20px;">
+    <input type="hidden" name="letter" id="hiddenLetter" value="<?php echo htmlspecialchars($selectedLetter ?? ''); ?>" />
+    <input type="hidden" name="call" id="hiddenCall" value="">
+    <input type="hidden" name="CardsReceived" id="hiddenCardsReceived" value="">
+    <button type="submit" id="submitCardButton" style="padding: 6px 12px;" disabled>Submit to Add Card</button>
+</form>
 </div>
 
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const callInput         = document.getElementById('Call');
-    const letterSelect      = document.getElementById('letter');
-    const statusDropdown    = document.getElementById('Status');
-    const mailInstDropdown  = document.getElementById('Mail-Inst');
-    const accountBalanceBox = document.getElementById('AccountBalance');
+document.addEventListener('DOMContentLoaded', function () {
+    const callInput = document.getElementById('Call');
+    const letterSelect = document.getElementById('letter');
+    const statusLabel = document.getElementById('Status');
+    const submitCardButton = document.getElementById('submitCardButton');
 
-    // 1) Update Status
-    async function updateStatusDropdown() {
-        const call = callInput.value.trim();
+    // Normalize the status text for comparison
+    function normalizeStatus(status) {
+        return status.trim().replace(/\.$/, ""); // Trim spaces and remove trailing period
+    }
+
+    // Toggle the Submit Button
+    function toggleSubmitButton() {
+        const invalidStatuses = ["No status found", "Enter a call sign", "N/A"];
+        const status = normalizeStatus(statusLabel.textContent);
+        console.log(`Debug: Normalized Status = "${status}"`); // Debugging: Log the normalized status
+
+        // Disable button if status matches invalid statuses
+        submitCardButton.disabled = invalidStatuses.includes(status);
+    }
+
+    // Update the Status Label
+    async function updateStatusLabel() {
+        const call = callInput.value.trim(); // Remove extra spaces
         const letter = letterSelect.value;
 
         if (!call) {
-            statusDropdown.innerHTML = '<option>Enter a call sign</option>';
+            statusLabel.textContent = 'Enter a call sign';
+            toggleSubmitButton(); // Ensure button is toggled after update
             return;
         }
 
         try {
-            const response = await fetch('fetch_status.php', {
+            const response = await fetch('../backend/fetch_status.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
@@ -199,27 +199,57 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(`Error: ${response.statusText}`);
             }
 
-            // fetch_status.php returns raw <option> tags
-            const optionHtml = await response.text();
-            statusDropdown.innerHTML = optionHtml;
+            const statusText = await response.text();
+            statusLabel.textContent = statusText.trim(); // Set trimmed status to the label
         } catch (error) {
-            console.error('Failed to load status:', error);
-            statusDropdown.innerHTML = '<option>Error loading Status</option>';
+            console.error('Error loading status:', error);
+            statusLabel.textContent = 'Error loading Status';
+        }
+
+        toggleSubmitButton(); // Call toggleSubmitButton after updating the status
+    }
+
+    // Update the Mail-Inst Label
+    async function updateMailInstLabel() {
+        const call = callInput.value.trim();
+        const letter = letterSelect.value;
+
+        if (!call) {
+            document.getElementById('Mail-Inst').textContent = 'Enter a call sign';
+            return;
+        }
+
+        try {
+            const response = await fetch('../backend/fetch_mail_inst.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.statusText}`);
+            }
+
+            const mailInstText = await response.text();
+            document.getElementById('Mail-Inst').textContent = mailInstText.trim();
+        } catch (error) {
+            console.error('Error loading mail instructions:', error);
+            document.getElementById('Mail-Inst').textContent = 'Error loading Mail-Inst';
         }
     }
 
-    // 2) Update Mail-Inst
-    async function updateMailInstDropdown() {
+    // Update the Account Balance Label
+    async function updateAccountBalanceLabel() {
         const call = callInput.value.trim();
         const letter = letterSelect.value;
 
         if (!call) {
-            mailInstDropdown.innerHTML = '<option>Enter a call sign</option>';
+            document.getElementById('AccountBalance').textContent = '';
             return;
         }
 
         try {
-            const response = await fetch('fetch_mail_inst.php', {
+            const response = await fetch('../backend/fetch_account_balance.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
@@ -229,54 +259,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(`Error: ${response.statusText}`);
             }
 
-            // fetch_mail_inst.php returns raw <option> tags
-            const optionHtml = await response.text();
-            mailInstDropdown.innerHTML = optionHtml;
-        } catch (error) {
-            console.error('Failed to load mail instructions:', error);
-            mailInstDropdown.innerHTML = '<option>Error loading Mail-Inst</option>';
-        }
-    }
-
-    // 3) Update AccountBalance
-    async function updateAccountBalance() {
-        const call = callInput.value.trim();
-        const letter = letterSelect.value;
-
-        if (!call) {
-            // If no call is entered, skip the request
-            accountBalanceBox.value = ''; 
-            return;
-        }
-
-        try {
-            const response = await fetch('fetch_account_balance.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.statusText}`);
-            }
-
-            // fetch_account_balance.php should return just a text (the numeric or string balance)
             const balanceText = await response.text();
-            accountBalanceBox.value = balanceText;
-
+            document.getElementById('AccountBalance').textContent = balanceText.trim();
         } catch (error) {
-            console.error('Failed to load account balance:', error);
-            accountBalanceBox.value = 'Error';
+            console.error('Error loading account balance:', error);
+            document.getElementById('AccountBalance').textContent = 'Error';
         }
     }
 
-    // Trigger all updates on "blur" of the Call field
+    // Attach Event Listeners
     callInput.addEventListener('blur', () => {
-        updateStatusDropdown();
-        updateMailInstDropdown();
-        updateAccountBalance();  // <-- add the new call here
+        updateStatusLabel(); // Update the status label on blur
+        updateMailInstLabel(); // Update mail instructions on blur
+        updateAccountBalanceLabel(); // Update account balance on blur
     });
+
+    // Initialize button state on page load
+    toggleSubmitButton();
 });
 </script>
+
+
 
 <?php include("$root/backend/footer.php"); ?>

@@ -170,12 +170,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($cardsReceivedData as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['Call']) ?></td>
-                        <td><?= htmlspecialchars($row['CardsReceived']) ?></td>
-                    </tr>
-                <?php endforeach; ?>
+            <?php foreach ($cardsReceivedData as $row): ?>
+                <?php 
+                // Skip the row if CardsReceived is empty (i.e., 0, null, '', etc.)
+                if (empty($row['CardsReceived'])) {
+                    continue;
+                }
+                ?>
+
+                <tr>
+                    <td><?= htmlspecialchars($row['Call'] ?? '') ?></td>
+                    <td><?= htmlspecialchars($row['CardsReceived'] ?? '') ?></td>
+                </tr>
+            <?php endforeach; ?>
             </tbody>
         </table>
     <?php elseif ($selectedSection): ?>

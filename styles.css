@@ -169,7 +169,8 @@ table, th, td {
 th, td {
     padding: 8px;
     text-align: left;
-    white-space: nowrap;
+    flex-wrap: wrap;
+    white-space: nowrap; 
 }
 
 th {
@@ -188,7 +189,7 @@ tbody tr:nth-child(even) {
 /* Ensure table takes the size of the largest text */
 td {
     width: 1px;
-    white-space: nowrap;
+    /*white-space: nowrap; */
 }
 
 /* Custom styles for the login page */
@@ -351,4 +352,85 @@ input[type="submit"]:hover:enabled, button:hover:enabled {
 
 .error {
     color: red;
+}
+
+
+/* Scrollable Table Container */
+.table-scroll {
+    overflow-x: auto;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+    box-sizing: border-box;
+    padding-bottom: 1rem;
+}
+
+/* Table Styling */
+.table-scroll table {
+    width: 100%;
+    min-width: 600px; /* Adjust based on your content */
+    border-collapse: collapse;
+}
+
+/* Table Header and Data Cells */
+.table-scroll th, .table-scroll td {
+    padding: 8px 12px;
+    border: 1px solid #ccc;
+    white-space: nowrap; /* Prevents text from wrapping */
+    text-align: left;
+}
+
+/* Optional: Enhance Scrollbar Visibility */
+.table-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Responsive Stacked Tables */
+@media screen and (max-width: 600px) {
+    .table-scroll table thead {
+        display: none; /* Hide table headers */
+    }
+    .table-scroll table, 
+    .table-scroll table tbody, 
+    .table-scroll table tr, 
+    .table-scroll table td {
+        display: block;
+        width: 100%;
+    }
+    .table-scroll table tr {
+        margin-bottom: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 0.5rem;
+        background: #fff;
+    }
+    .table-scroll table td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border: none;
+    }
+    .table-scroll table td::before {
+        content: attr(data-label); /* Display the label from data-label */
+        position: absolute;
+        left: 10px;
+        width: 45%;
+        padding-right: 10px;
+        
+        text-align: left;
+        font-weight: bold;
+    }
 }
