@@ -14,7 +14,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
  */
-#print_r($_POST);
+print_r($_POST);
 
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
@@ -22,7 +22,7 @@ $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-$title = "Cards Received";
+$title = "Cards To Mail";
 $selectedLetter = null;
 
 // Ensure user is logged in
@@ -52,7 +52,7 @@ function getPDOConnection(array $dbInfo)
 function getNextID(PDO $pdo)
 {
     try {
-        $stmt = $pdo->query("SELECT MAX(ID) as maxID FROM tbl_CardRec");
+        $stmt = $pdo->query("SELECT MAX(ID) as maxID FROM tbl_CardM");
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return ($result['maxID'] ?? 0) + 1;
     } catch (PDOException $e) {
@@ -74,10 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
 ?>
 <div class="center-content">
    
-   <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Mailed</h1>
-   <!-- 1) Form for selecting the section (letter) -->
-  
-   <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
+    <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Mailed</h1>
+    <!-- 1) Form for selecting the section (letter) -->
+   
+    <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
         <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: space-between;">
             <input type="hidden" name="letter_select_form" value="1">
             <label for="letter" style="white-space: nowrap;">Select a Section:</label>
@@ -99,7 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
         </div>
     </form>
 
-    <!-- 2) Data entry fields -->
     <div style="display: grid; grid-template-columns: auto 1fr; gap: 10px; width: 400px; padding: 10px; border: 1px solid;">
         <!-- ID -->
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
@@ -120,27 +119,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
                 style="flex: 1;"
             >
         </div>
-
-        <!-- Cards Received -->
-        <label for="CardsReceived" style="text-align: right; font-weight: bold;">Cards Received:</label>
+        <!-- Cards To Mail -->
+        <label for="CardsToMail" style="text-align: right; font-weight: bold;">Cards To Mail:</label>
         <input
             type="text"
-            id="CardsReceived"
-            name="CardsReceived"
+            id="CardsToMail"
+            name="CardsToMail"
             required
             class="form-control"
-            value="<?php echo isset($CardsReceived) ? htmlspecialchars($CardsReceived) : ''; ?>"
+            value="<?php echo isset($CardsToMail) ? htmlspecialchars($CardsToMail) : ''; ?>"
         >
-
-        <!-- Date Received -->
-        <label for="DateReceived" style="text-align: right; font-weight: bold;">Date Received:</label>
+        <!-- Weight -->
+        <label for="Weight" style="text-align: right; font-weight: bold;">Weight:</label>
         <input
-            type="date"
-            id="DateReceived"
-            name="DateReceived"
+            type="text"
+            id="Weight"
+            name="Weight"
             required
             class="form-control"
-            value="<?php echo isset($DateReceived) ? htmlspecialchars($DateReceived) : date('Y-m-d'); ?>"
+            value="<?php echo isset($Weight) ? htmlspecialchars($Weight) : ''; ?>"
+        >
+          <!--Postage Cost -->
+          <label for="Postage Cost" style="text-align: right; font-weight: bold;">Postage Cost:</label>
+        <input
+            type="text"
+            id="PostageCost"
+            name="PostageCost"
+            required
+            class="form-control"
+            value="<?php echo isset($PostageCost) ? htmlspecialchars($PostageCost) : ''; ?>"
+        >
+          <!-- Other Cost -->
+          <label for="OtherCost" style="text-align: right; font-weight: bold;">OtherCost:</label>
+        <input
+            type="text"
+            id="OtherCost"
+            name="OtherCost"
+            required
+            class="form-control"
+            value="<?php echo isset($OtherCost) ? htmlspecialchars($OtherCost) : ''; ?>"
+        >
+          <!-- Total Cost -->
+          <label for="Total Cost" style="text-align: right; font-weight: bold;">Total Cost:</label>
+        <input
+            type="text"
+            id="TotalCost"
+            name="TotalCost"
+            required
+            class="form-control"
+            value="<?php echo isset($TotalCost) ? htmlspecialchars($TotalCost) : ''; ?>"
         >
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
             <!-- Status (Label) -->
@@ -153,11 +180,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
             <label id="Mail-Inst"><?php echo isset($MailInst) ? htmlspecialchars($MailInst) : 'N/A'; ?></label>
         </div>
 
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <!-- Cards Received -->
+            <label for="CardsReceived" style="text-align: right; font-weight: bold;">Cards Received:</label>
+            <label id="CardsReceived"><?php echo isset($CardsReceived) ? htmlspecialchars($CardsReceived) : 'N/A'; ?></label>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <!-- Cards On Hand -->
+            <label for="CardsOnHand" style="text-align: right; font-weight: bold;">Cards On Hand:</label>
+            <label id="CardsOnHand"><?php echo isset($CardsOnHand) ? htmlspecialchars($CardsOnHand) : 'N/A'; ?></label>
+        </div>
+
         <!-- Account Balance (Label) -->
         <label for="AccountBalance" style="text-align: right; font-weight: bold;">Account Balance:</label>
         <label id="AccountBalance"><?php echo isset($AccountBalance) ? htmlspecialchars($AccountBalance) : 'N/A'; ?></label>
     </div>
-
+     
+     
     <!-- 3) Second form to submit letter, call, CardsReceived to a new page -->
     <form method="POST" action="../backend/submit_cards.php" style="margin-top: 20px;">
     <input type="hidden" name="letter" id="hiddenLetter" value="<?php echo htmlspecialchars($selectedLetter ?? ''); ?>" />
@@ -167,6 +206,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
 </form>
 </div>
 
+
+
+    <?php
+    // Process form submission
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        // Loop through the submitted values
+      
+    }
+    ?>
+</body>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {

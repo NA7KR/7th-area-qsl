@@ -1,10 +1,4 @@
 <?php
-session_start();
-session_unset();
-session_destroy();
-?>
-
-<?php
 /*
 Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
 
@@ -20,6 +14,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+session_start();
+session_unset();
+session_destroy();
+
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
 
