@@ -15,11 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
+ session_start();
 // Get the document root and include the configuration file
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $config = include($root . '/config.php');

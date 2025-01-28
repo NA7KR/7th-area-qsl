@@ -52,14 +52,15 @@ $dbInfo = $config['sections'][$selectedLetter];
 $pdo = getPDOConnection($dbInfo);
 
 if ($call) {
-    $stmt = $pdo->prepare("SELECT `Status` FROM `tbl_Operator` WHERE `Call` = :call");
+    $stmt = $pdo->prepare("SELECT  (SUM(DISTINCT `CardsMailed`) - SUM(DISTINCT `CardsReceived`) - SUM(DISTINCT `CardsReturned`)) AS onhand FROM  tbl_CardM JOIN   tbl_CardRec ON tbl_CardM.`call` = tbl_CardRec.`call` JOIN   tbl_CardRet ON tbl_CardM.`call` = tbl_CardRet.`call` WHERE   tbl_CardM.`call` = :call");
+
     $stmt->execute(['call' => $call]);
     $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if ($results) {
         foreach ($results as $row) {
             // Escape the status to prevent any HTML injection
-            $status = htmlspecialchars($row['Status']);
+            $status = htmlspecialchars($row['onhand'] ?? '0');  
             echo htmlspecialchars($status); // Plain text output
         }
     } else {
@@ -68,3 +69,4 @@ if ($call) {
 } else {
     echo "No status found.";
 }
+

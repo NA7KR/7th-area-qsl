@@ -24,13 +24,12 @@ ini_set('display_errors', 1);
 
 $title = "Cards To Mail";
 $selectedLetter = null;
-
+$ID = null;
 // Ensure user is logged in
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
 }
-
 include("$root/backend/header.php");
 $config = include($root . '/config.php');
 
@@ -95,6 +94,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
                     <?php endif; ?>
                 </select>
             </div>
+            <?php
+            // Add this line to make the ID available to JavaScript
+            echo "<script>window.nextID = '$ID';</script>";
+            ?>
             <button type="submit" style="height: 35px; padding: 0 15px; line-height: 35px; text-align: center;">Select</button>
         </div>
     </form>
@@ -117,6 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
                 class="form-control"
                 value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
                 style="flex: 1;"
+                disabled
             >
         </div>
         <!-- Cards To Mail -->
@@ -127,34 +131,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
             name="CardsToMail"
             required
             class="form-control"
+            disabled
             value="<?php echo isset($CardsToMail) ? htmlspecialchars($CardsToMail) : ''; ?>"
         >
         <!-- Weight -->
-        <label for="Weight" style="text-align: right; font-weight: bold;">Weight:</label>
+        <label  style="text-align: right; font-weight: bold;">Weight:</label>
         <input
             type="text"
-            id="Weight"
-            name="Weight"
+            id="weight"
+            name="weight"
+            disabled
             required
             class="form-control"
             value="<?php echo isset($Weight) ? htmlspecialchars($Weight) : ''; ?>"
         >
-          <!--Postage Cost -->
-          <label for="Postage Cost" style="text-align: right; font-weight: bold;">Postage Cost:</label>
-        <input
-            type="text"
-            id="PostageCost"
-            name="PostageCost"
-            required
-            class="form-control"
-            value="<?php echo isset($PostageCost) ? htmlspecialchars($PostageCost) : ''; ?>"
-        >
+          <!-- Postage Cost -->
+          <label  style="text-align: right; font-weight: bold;">Postage Cost:</label>
+          <input
+                type="text"
+                id="PostageCost"
+                onclick="openPopup('<?php echo htmlspecialchars($selectedLetter ?? ''); ?>', document.getElementById('weight').value)"
+                name="PostageCost"
+                disabled
+                required
+                class="form-control"
+                value="<?php echo isset($PostageCost) ? htmlspecialchars($PostageCost) : ''; ?>"
+            >
+
           <!-- Other Cost -->
-          <label for="OtherCost" style="text-align: right; font-weight: bold;">OtherCost:</label>
+          <label for="OtherCost" style="text-align: right; font-weight: bold;">Other Cost:</label>
         <input
             type="text"
             id="OtherCost"
             name="OtherCost"
+            disabled
             required
             class="form-control"
             value="<?php echo isset($OtherCost) ? htmlspecialchars($OtherCost) : ''; ?>"
@@ -166,34 +176,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
             id="TotalCost"
             name="TotalCost"
             required
+            disabled
             class="form-control"
             value="<?php echo isset($TotalCost) ? htmlspecialchars($TotalCost) : ''; ?>"
         >
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
             <!-- Status (Label) -->
-            <label for="Status" style="text-align: right; font-weight: bold;">Status:</label>
+            <label style="text-align: right; font-weight: bold;">Status:</label>
             <label id="Status"><?php echo isset($Status) ? htmlspecialchars($Status) : 'N/A'; ?></label>
         </div>
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
             <!-- Mail-Inst (Label) -->
-            <label for="Mail-Inst" style="text-align: right; font-weight: bold;">Mail-Inst:</label>
+            <label style="text-align: right; font-weight: bold;">Mail:</label>
             <label id="Mail-Inst"><?php echo isset($MailInst) ? htmlspecialchars($MailInst) : 'N/A'; ?></label>
         </div>
-
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-            <!-- Cards Received -->
-            <label for="CardsReceived" style="text-align: right; font-weight: bold;">Cards Received:</label>
-            <label id="CardsReceived"><?php echo isset($CardsReceived) ? htmlspecialchars($CardsReceived) : 'N/A'; ?></label>
-        </div>
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-            <!-- Cards On Hand -->
-            <label for="CardsOnHand" style="text-align: right; font-weight: bold;">Cards On Hand:</label>
-            <label id="CardsOnHand"><?php echo isset($CardsOnHand) ? htmlspecialchars($CardsOnHand) : 'N/A'; ?></label>
-        </div>
+        <!-- Cards On Hand -->
+        <label style="text-align: right; font-weight: bold;">Cards On Hand:</label>
+        <label id="CardsOnHand"><?php echo isset($CardsOnHand) ? htmlspecialchars($CardsOnHand) : '0'; ?></label>
 
         <!-- Account Balance (Label) -->
-        <label for="AccountBalance" style="text-align: right; font-weight: bold;">Account Balance:</label>
-        <label id="AccountBalance"><?php echo isset($AccountBalance) ? htmlspecialchars($AccountBalance) : 'N/A'; ?></label>
+        <label style="text-align: right; font-weight: bold;">Account Balance:</label>
+        <label id="AccountBalance" style="color: 
+            <?php echo isset($AccountBalance) && $AccountBalance > 0.85 ? 'green' : 'red'; ?>">
+            <?php echo isset($AccountBalance) ? htmlspecialchars($AccountBalance) : '0'; ?>
+        </label>
+        
     </div>
      
      
@@ -216,124 +223,294 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
     }
     ?>
 </body>
-
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function() {
+    // Get all input elements
     const callInput = document.getElementById('Call');
     const letterSelect = document.getElementById('letter');
+    const letterForm = document.querySelector('form');
     const statusLabel = document.getElementById('Status');
     const submitCardButton = document.getElementById('submitCardButton');
+    const cardsToMailInput = document.getElementById('CardsToMail');
+    const weightInput = document.getElementById('weight');
+    const postageCostInput = document.getElementById('PostageCost');
+    const otherCostInput = document.getElementById('OtherCost');
+    const totalCostInput = document.getElementById('TotalCost');
+    const cardsOnHandLabel = document.getElementById('CardsOnHand');
+    const mailInstLabel = document.getElementById('Mail-Inst');
+    const accountBalanceLabel = document.getElementById('AccountBalance');
 
-    // Normalize the status text for comparison
+    // Standardized error text for missing data
+    const missingDataText = 'Data not found';
+
+    // Initially disable all inputs
+    function initializeInputs() {
+        callInput.disabled = true;
+        cardsToMailInput.disabled = true;
+        weightInput.disabled = true;
+        postageCostInput.disabled = true;
+        otherCostInput.disabled = true;
+        totalCostInput.disabled = true;
+    }
+
+    // Call initialization
+    initializeInputs();
+
+    // Add observer for ID changes
+    const idObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (window.nextID) {
+                callInput.disabled = false;
+            }
+        });
+    });
+
+    // Start observing
+    idObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+
+    // Form submit handler
+    letterForm.addEventListener('submit', function() {
+        setTimeout(() => {
+            if (window.nextID) {
+                callInput.disabled = false;
+            }
+        }, 100);
+    });
+
+    // Check on page load
+    if (window.nextID) {
+        callInput.disabled = false;
+    }
+
+    // Enable/disable fields based on Call input
+    callInput.addEventListener('input', function() {
+        const hasValue = this.value.trim() !== '';
+        cardsToMailInput.disabled = !hasValue;
+        
+        if (!hasValue) {
+            cardsToMailInput.disabled = true;
+            weightInput.disabled = true;
+            postageCostInput.disabled = true;
+            otherCostInput.disabled = true;
+            totalCostInput.disabled = true;
+        }
+    });
+
+    // Enable/disable fields based on Cards to Mail input
+    cardsToMailInput.addEventListener('input', function() {
+        const hasValue = this.value.trim() !== '';
+        weightInput.disabled = !hasValue;
+        
+        if (!hasValue) {
+            postageCostInput.disabled = true;
+            otherCostInput.disabled = true;
+            totalCostInput.disabled = true;
+        }
+    });
+
+    // Enable/disable fields based on Weight input
+    weightInput.addEventListener('input', function() {
+        const hasValue = this.value.trim() !== '';
+        postageCostInput.disabled = !hasValue;
+        
+        if (!hasValue) {
+            otherCostInput.disabled = true;
+            totalCostInput.disabled = true;
+        }
+    });
+
+    // Enable/disable fields based on Postage Cost input
+    postageCostInput.addEventListener('input', function() {
+        const hasValue = this.value.trim() !== '';
+        otherCostInput.disabled = !hasValue;
+        
+        if (!hasValue) {
+            totalCostInput.disabled = true;
+        }
+        calculateTotal();
+    });
+
+    // Enable/disable Total Cost based on Other Cost input
+    otherCostInput.addEventListener('input', function() {
+        const hasValue = this.value.trim() !== '';
+        totalCostInput.disabled = !hasValue;
+        calculateTotal();
+    });
+
+    // Calculate Total Cost
+    function calculateTotal() {
+        const postageCost = parseFloat(postageCostInput.value) || 0;
+        const otherCost = parseFloat(otherCostInput.value) || 0;
+        totalCostInput.value = (postageCost + otherCost).toFixed(2);
+    }
+
+    // Validate numeric input
+    function validateNumericInput(event) {
+        const value = event.target.value;
+        if (!/^\d*\.?\d*$/.test(value)) {
+            event.target.value = value.replace(/[^\d.]/g, '');
+        }
+        if ((value.match(/\./g) || []).length > 1) {
+            event.target.value = value.replace(/\.+$/, '');
+        }
+    }
+
+    // Apply numeric validation
+    cardsToMailInput.addEventListener('input', validateNumericInput);
+    weightInput.addEventListener('input', validateNumericInput);
+    postageCostInput.addEventListener('input', validateNumericInput);
+    otherCostInput.addEventListener('input', validateNumericInput);
+
+    // Normalize status text for comparison
     function normalizeStatus(status) {
-        return status.trim().replace(/\.$/, ""); // Trim spaces and remove trailing period
+        return status.trim().replace(/\.$/, "");
     }
 
     // Toggle the Submit Button
     function toggleSubmitButton() {
-        const invalidStatuses = ["No status found", "Enter a call sign", "N/A"];
+        const invalidStatuses = ["No status found", "Enter a call sign", "N/A", missingDataText];
         const status = normalizeStatus(statusLabel.textContent);
-        console.log(`Debug: Normalized Status = "${status}"`); // Debugging: Log the normalized status
-
-        // Disable button if status matches invalid statuses
         submitCardButton.disabled = invalidStatuses.includes(status);
     }
 
-    // Update the Status Label
-    async function updateStatusLabel() {
-        const call = callInput.value.trim(); // Remove extra spaces
+    // Update label with standardized message
+    function updateLabel(label, url, params) {
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams(params)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error(`Error: ${response.statusText}`);
+            return response.text();
+        })
+        .then(text => {
+            label.textContent = text.trim() || missingDataText;
+            if (label === statusLabel) {
+                toggleSubmitButton();
+            }
+        })
+        .catch(error => {
+            console.error(`Error loading data for ${label.id}:`, error);
+            label.textContent = missingDataText;
+            if (label === statusLabel) {
+                toggleSubmitButton();
+            }
+        });
+    }
+
+    // Update Status Label
+    function updateStatusLabel() {
+        const call = callInput.value.trim();
         const letter = letterSelect.value;
 
         if (!call) {
             statusLabel.textContent = 'Enter a call sign';
-            toggleSubmitButton(); // Ensure button is toggled after update
+            toggleSubmitButton();
             return;
         }
 
-        try {
-            const response = await fetch('../backend/fetch_status.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.statusText}`);
-            }
-
-            const statusText = await response.text();
-            statusLabel.textContent = statusText.trim(); // Set trimmed status to the label
-        } catch (error) {
-            console.error('Error loading status:', error);
-            statusLabel.textContent = 'Error loading Status';
-        }
-
-        toggleSubmitButton(); // Call toggleSubmitButton after updating the status
+        updateLabel(statusLabel, '../backend/fetch_status.php', { letter, call });
     }
 
-    // Update the Mail-Inst Label
-    async function updateMailInstLabel() {
+    // Update Mail-Inst Label
+    function updateMailInstLabel() {
         const call = callInput.value.trim();
         const letter = letterSelect.value;
 
         if (!call) {
-            document.getElementById('Mail-Inst').textContent = 'Enter a call sign';
+            mailInstLabel.textContent = 'Enter a call sign';
             return;
         }
 
-        try {
-            const response = await fetch('../backend/fetch_mail_inst.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
-            });
-
-            if (!response.ok) {
-                throw new Error(`Error: ${response.statusText}`);
-            }
-
-            const mailInstText = await response.text();
-            document.getElementById('Mail-Inst').textContent = mailInstText.trim();
-        } catch (error) {
-            console.error('Error loading mail instructions:', error);
-            document.getElementById('Mail-Inst').textContent = 'Error loading Mail-Inst';
-        }
+        updateLabel(mailInstLabel, '../backend/fetch_mail_inst.php', { letter, call });
     }
 
-    // Update the Account Balance Label
-    async function updateAccountBalanceLabel() {
+    // Update Account Balance Label
+    function updateAccountBalanceLabel() {
         const call = callInput.value.trim();
         const letter = letterSelect.value;
 
         if (!call) {
-            document.getElementById('AccountBalance').textContent = '';
+            accountBalanceLabel.textContent = 'Enter a call sign';
             return;
         }
 
-        try {
-            const response = await fetch('../backend/fetch_account_balance.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `letter=${encodeURIComponent(letter)}&call=${encodeURIComponent(call)}`
-            });
+        updateLabel(accountBalanceLabel, '../backend/fetch_account_balance.php', { letter, call });
+    }
 
-            if (!response.ok) {
-                throw new Error(`Error: ${response.statusText}`);
-            }
+    // Update Cards On Hand Label
+    function updateCardsOnHandLabel() {
+        const call = callInput.value.trim();
+        const letter = letterSelect.value;
 
-            const balanceText = await response.text();
-            document.getElementById('AccountBalance').textContent = balanceText.trim();
-        } catch (error) {
-            console.error('Error loading account balance:', error);
-            document.getElementById('AccountBalance').textContent = 'Error';
+        if (!call) {
+            cardsOnHandLabel.textContent = 'Enter a call sign';
+            return;
+        }
+
+        updateLabel(cardsOnHandLabel, '../backend/fetch_cards_on_hand.php', { letter, call });
+    }
+
+    // Attach blur event listener to Call input
+    callInput.addEventListener('blur', function() {
+        updateStatusLabel();
+        updateMailInstLabel();
+        updateAccountBalanceLabel();
+        updateCardsOnHandLabel();
+    });
+
+    // Function to open popup window
+    function openPopupWindow(letter, weight) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '../backend/stamps.php';
+        form.target = 'StampsPopup';
+
+        const letterInput = document.createElement('input');
+        letterInput.type = 'hidden';
+        letterInput.name = 'letter';
+        letterInput.value = letter;
+
+        const weightInput = document.createElement('input');
+        weightInput.type = 'hidden';
+        weightInput.name = 'weight';
+        weightInput.value = weight;
+
+        form.appendChild(letterInput);
+        form.appendChild(weightInput);
+        document.body.appendChild(form);
+
+        const features = [
+            'width=400',
+            'height=300',
+            'menubar=no',
+            'toolbar=no',
+            'location=no',
+            'status=no',
+            'scrollbars=yes',
+            'resizable=no'
+        ].join(',');
+
+        const popup = window.open('', 'StampsPopup', features);
+        if (popup) {
+            form.submit();
+            document.body.removeChild(form);
+        } else {
+            alert('Please allow popups for this site');
         }
     }
 
-    // Attach Event Listeners
-    callInput.addEventListener('blur', () => {
-        updateStatusLabel(); // Update the status label on blur
-        updateMailInstLabel(); // Update mail instructions on blur
-        updateAccountBalanceLabel(); // Update account balance on blur
+    // Handle popup window
+    postageCostInput.addEventListener('click', function() {
+        const letter = letterSelect.value;
+        const weight = weightInput.value;
+        if (weight) {
+            openPopupWindow(letter, weight);
+        }
     });
 
     // Initialize button state on page load
@@ -341,6 +518,3 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-
-
-<?php include("$root/backend/footer.php"); ?>
