@@ -72,10 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
 }
 ?>
 <div class="center-content">
-   
     <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Mailed</h1>
     <!-- 1) Form for selecting the section (letter) -->
-   
     <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
         <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: space-between;">
             <input type="hidden" name="letter_select_form" value="1">
@@ -101,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
             <button type="submit" style="height: 35px; padding: 0 15px; line-height: 35px; text-align: center;">Select</button>
         </div>
     </form>
-
+    
     <div style="display: grid; grid-template-columns: auto 1fr; gap: 10px; width: 400px; padding: 10px; border: 1px solid;">
         <!-- ID -->
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
@@ -120,7 +118,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
                 class="form-control"
                 value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
                 style="flex: 1;"
-                disabled
             >
         </div>
         <!-- Cards To Mail -->
@@ -131,7 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
             name="CardsToMail"
             required
             class="form-control"
-            disabled
             value="<?php echo isset($CardsToMail) ? htmlspecialchars($CardsToMail) : ''; ?>"
         >
         <!-- Weight -->
@@ -140,7 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
             type="text"
             id="weight"
             name="weight"
-            disabled
             required
             class="form-control"
             value="<?php echo isset($Weight) ? htmlspecialchars($Weight) : ''; ?>"
@@ -150,9 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
           <input
                 type="text"
                 id="PostageCost"
-                onclick="openPopup('<?php echo htmlspecialchars($selectedLetter ?? ''); ?>', document.getElementById('weight').value)"
                 name="PostageCost"
-                disabled
                 required
                 class="form-control"
                 value="<?php echo isset($PostageCost) ? htmlspecialchars($PostageCost) : ''; ?>"
@@ -164,7 +157,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
             type="text"
             id="OtherCost"
             name="OtherCost"
-            disabled
             required
             class="form-control"
             value="<?php echo isset($OtherCost) ? htmlspecialchars($OtherCost) : ''; ?>"
@@ -176,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
             id="TotalCost"
             name="TotalCost"
             required
-            disabled
+            readonly
             class="form-control"
             value="<?php echo isset($TotalCost) ? htmlspecialchars($TotalCost) : ''; ?>"
         >
@@ -205,24 +197,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
      
      
     <!-- 3) Second form to submit letter, call, CardsReceived to a new page -->
-    <form method="POST" action="../backend/submit_cards.php" style="margin-top: 20px;">
+<form method="POST" action="../backend/stamps.php" style="margin-top: 20px;" id="submitForm">
     <input type="hidden" name="letter" id="hiddenLetter" value="<?php echo htmlspecialchars($selectedLetter ?? ''); ?>" />
-    <input type="hidden" name="call" id="hiddenCall" value="">
-    <input type="hidden" name="CardsReceived" id="hiddenCardsReceived" value="">
+    <input type="hidden" name="ID" value="<?php echo htmlspecialchars($ID ?? ''); ?>" />
+    <input type="hidden" name="Call" value="<?php echo htmlspecialchars($Call ?? ''); ?>" />
+    <input type="hidden" name="CardsToMail" value="<?php echo htmlspecialchars($CardsToMail ?? ''); ?>" />
+    <input type="hidden" name="weight" value="<?php echo htmlspecialchars($Weight ?? ''); ?>" />
+    <input type="hidden" name="PostageCost" value="<?php echo htmlspecialchars($PostageCost ?? ''); ?>" />
+    <input type="hidden" name="OtherCost" value="<?php echo htmlspecialchars($OtherCost ?? ''); ?>" />
+    <input type="hidden" name="TotalCost" value="<?php echo htmlspecialchars($TotalCost ?? ''); ?>" />
     <button type="submit" id="submitCardButton" style="padding: 6px 12px;" disabled>Submit to Add Card</button>
 </form>
+
 </div>
 
-
-
-    <?php
-    // Process form submission
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        // Loop through the submitted values
-      
-    }
-    ?>
-</body>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Get all input elements
@@ -239,6 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cardsOnHandLabel = document.getElementById('CardsOnHand');
     const mailInstLabel = document.getElementById('Mail-Inst');
     const accountBalanceLabel = document.getElementById('AccountBalance');
+    const submitForm = document.getElementById('submitForm');
 
     // Standardized error text for missing data
     const missingDataText = 'Data not found';
@@ -463,47 +452,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCardsOnHandLabel();
     });
 
-    // Function to open popup window
-    function openPopupWindow(letter, weight) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '../backend/stamps.php';
-        form.target = 'StampsPopup';
-
-        const letterInput = document.createElement('input');
-        letterInput.type = 'hidden';
-        letterInput.name = 'letter';
-        letterInput.value = letter;
-
-        const weightInput = document.createElement('input');
-        weightInput.type = 'hidden';
-        weightInput.name = 'weight';
-        weightInput.value = weight;
-
-        form.appendChild(letterInput);
-        form.appendChild(weightInput);
-        document.body.appendChild(form);
-
-        const features = [
-            'width=400',
-            'height=300',
-            'menubar=no',
-            'toolbar=no',
-            'location=no',
-            'status=no',
-            'scrollbars=yes',
-            'resizable=no'
-        ].join(',');
-
-        const popup = window.open('', 'StampsPopup', features);
-        if (popup) {
-            form.submit();
-            document.body.removeChild(form);
-        } else {
-            alert('Please allow popups for this site');
-        }
-    }
-
     // Handle popup window
     postageCostInput.addEventListener('click', function() {
         const letter = letterSelect.value;
@@ -511,6 +459,27 @@ document.addEventListener('DOMContentLoaded', function() {
         if (weight) {
             openPopupWindow(letter, weight);
         }
+    });
+
+    // Populate hidden fields before form submission
+    submitForm.addEventListener('submit', function(event) {
+        event.preventDefault(); // Prevent the default form submission
+        document.querySelector('input[name="Call"]').value = callInput.value;
+        document.querySelector('input[name="CardsToMail"]').value = cardsToMailInput.value;
+        document.querySelector('input[name="weight"]').value = weightInput.value;
+        document.querySelector('input[name="PostageCost"]').value = postageCostInput.value;
+        document.querySelector('input[name="OtherCost"]').value = otherCostInput.value;
+        document.querySelector('input[name="TotalCost"]').value = totalCostInput.value;
+
+        // Debugging: Log the values to the console
+        console.log('Call:', callInput.value);
+        console.log('CardsToMail:', cardsToMailInput.value);
+        console.log('Weight:', weightInput.value);
+        console.log('PostageCost:', postageCostInput.value);
+        console.log('OtherCost:', otherCostInput.value);
+        console.log('TotalCost:', totalCostInput.value);
+
+        submitForm.submit(); // Submit the form programmatically
     });
 
     // Initialize button state on page load
