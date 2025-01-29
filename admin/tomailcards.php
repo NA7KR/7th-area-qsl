@@ -17,7 +17,6 @@ limitations under the License.
 //print_r($_POST);
 
 session_start();
-$root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
@@ -33,34 +32,8 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 }
 
 include("$root/backend/header.php");
-$config = include($root . '/config.php');
 
-/**
- * Create a PDO connection using config array: ['host','dbname','username','password'].
- */
-function getPDOConnection(array $dbInfo)
-{
-    try {
-        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
-        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $pdo;
-    } catch (PDOException $e) {
-        die("Database connection failed: " . $e->getMessage());
-    }
-}
 
-function getNextID(PDO $pdo)
-{
-    try {
-        $stmt = $pdo->query("SELECT MAX(ID) as maxID FROM tbl_CardM");
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return ($result['maxID'] ?? 0) + 1;
-    } catch (PDOException $e) {
-        error_log("Error getting next ID: " . $e->getMessage());
-        return 1;
-    }
-}
 
 // If the user submitted the form to select a letter:
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])) {

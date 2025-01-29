@@ -17,9 +17,8 @@ limitations under the License.
 
 session_start();
 
-$root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Users to pay Page";
-$config = include($root . '/config.php');
+$root = realpath($_SERVER["DOCUMENT_ROOT"]);
 include("$root/backend/header.php");
 
 // Check login
@@ -27,7 +26,6 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
 }
-
 
 // Include PHPMailer files
 include_once("$root/backend/Exception.php");
@@ -58,136 +56,6 @@ $totalCardsReturned = 0;
 $totalCardsOnHand   = 0;
 $submittedData      = [];
 
-/**
- * Fetch rows from a MySQL table, returning CSV-like lines so your existing
- * str_getcsv() + array_search() logic can remain unchanged.
- *
- * @param PDO    $pdo       A connected PDO instance.
- * @param string $tableName The table name (e.g. 'tbl_CardRec').
- *
- * @return string[] An array of CSV lines (first line = headers).
- */
-function fetchData(PDO $pdo, $tableName)
-{
-    $output = [];
-
-    try {
-        // Query every column from the specified table
-        $stmt = $pdo->query("SELECT * FROM `$tableName`");
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // If the table is empty or doesn't exist
-        if (!$rows) {
-            return [];
-        }
-
-        // Build CSV header from column names
-        $headers = array_keys($rows[0]); // e.g. ['Call','CardsReceived','FirstName',...]
-        $headerLine = '"' . implode('","', $headers) . '"';
-        $output[] = $headerLine;
-
-        // Build CSV lines for each row
-        foreach ($rows as $row) {
-            $lineParts = [];
-            foreach ($headers as $colName) {
-                $val = $row[$colName] ?? '';
-                // Escape double quotes
-                $val = str_replace('"', '""', $val);
-                $lineParts[] = "\"$val\"";
-            }
-            $output[] = implode(',', $lineParts);
-        }
-    } catch (PDOException $e) {
-        echo "Error: Could not retrieve data from $tableName. " . $e->getMessage() . "<br>";
-        return [];
-    }
-
-    return $output;
-}
-
-/**
- * Trims each header string
- */
-function normalizeHeaders($headers)
-{
-    return array_map('trim', $headers);
-}
-
-/**
- * Removes #mailto:...# patterns in the email field
- */
-function sanitizeEmail($email)
-{
-    return preg_replace('/#mailto:[^#]+#/', '', $email);
-}
-
-/**
- * Sends an email to the user regarding unpaid QSL cards.
- */
-function sendEmail($to, $call, $cardsOnHand, $emailConfig)
-{
-    $mail = new PHPMailer(true);
-    $debugEmail = $emailConfig['debug_email'];
-
-    if ($emailConfig['testing']) {
-        // Override actual recipient
-        $to = $debugEmail;
-        echo "Testing enabled: Email will be sent to debug address ($debugEmail) instead.<br>";
-    }
-
-    try {
-        $mail->SMTPDebug = $emailConfig['debugging'] ? SMTP::DEBUG_SERVER : SMTP::DEBUG_OFF;
-        $mail->isSMTP();
-        $mail->Host       = $emailConfig['server'];
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $emailConfig['sender'];
-        $mail->Password   = $emailConfig['password'];
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        $mail->Port       = $emailConfig['port'];
-
-        // Set email details
-        $mail->setFrom($emailConfig['from'], $emailConfig['from_name']);
-        $mail->addAddress($to);
-        $mail->isHTML($emailConfig['send_html']);
-        $mail->Subject = 'Incoming DX Card(s) Notification';
-
-        // Email body
-        $mail->Body = "
-            <img src='cid:7thArea' alt='7th Area' /><br>
-            Hello <b>$call</b>,<br><br>
-            My name is {$emailConfig['myname']} {$emailConfig['mycall']}. I am the ARRL 7th district QSL sorter for the {$emailConfig['sections']}.<br>
-            I am writing you today because you have incoming DX card(s) in the incoming QSL bureau. 
-            Cards on hand: <b>$cardsOnHand</b>.<br>
-            If you would like to receive these cards, please go to 
-            <a href='https://wvdxc.org/pay-online-for-credits/'>pay online for credits</a> or use the mail-in form.<br>
-            <span style='color:red; font-weight:bold;'>Please respond within 30 days</span>, or else your account will be marked discard all incoming bureau cards.<br><br>
-            If you would NOT like to receive incoming bureau cards, please let me know.<br><br>
-            If you have any questions or concerns, please reply to this email or email me at {$emailConfig['from']}.<br><br>
-            You can read more about the 7th district QSL bureau at 
-            <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.<br><br>
-            Best regards,<br>
-            {$emailConfig['myname']} {$emailConfig['mycall']}<br>
-            ARRL 7th District QSL Sorter – {$emailConfig['sections']}<br>
-            {$emailConfig['from']}
-        ";
-
-
-
-        // Embed the 7thArea.png image in the email
-        $mail->addEmbeddedImage('../7thArea.png', '7thArea');
-
-        // Headers
-        $mail->addCustomHeader('Return-Receipt-To', $emailConfig['from']);
-        $mail->addCustomHeader('Disposition-Notification-To', $emailConfig['from']);
-
-        // Send
-        $mail->send();
-        echo "Message has been sent to $call ($to)<br>";
-    } catch (Exception $e) {
-        echo "Message could not be sent to $call ($to). Mailer Error: {$mail->ErrorInfo}<br>";
-    }
-}
-
 // -------------------------------------------------------------------
 // MAIN EXECUTION: Handle Form Submission
 // -------------------------------------------------------------------
@@ -211,10 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
 
         // Fetch data from the 4 MySQL tables using our new function
-        $rawCardData     = fetchData($pdo, 'tbl_CardRec');
-        $rawMailedData   = fetchData($pdo, 'tbl_CardM');
-        $rawReturnedData = fetchData($pdo, 'tbl_CardRet');
-        $rawOperatorData = fetchData($pdo, 'tbl_Operator');
+        $rawCardData     = fetchData2($pdo, 'tbl_CardRec');
+        $rawMailedData   = fetchData2($pdo, 'tbl_CardM');
+        $rawReturnedData = fetchData2($pdo, 'tbl_CardRet');
+        $rawOperatorData = fetchData2($pdo, 'tbl_Operator');
 
         // ------------------------------------------------
         // Parse tbl_CardRec -> $cardData
@@ -439,7 +307,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
     </style>
 
-    <img src="../7thArea.png" alt="7th Area" />
+    
     <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
 
     <!-- Main Form -->
@@ -484,7 +352,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
             <input type="hidden" name="filter_email"  value="<?= htmlspecialchars($filterEmail) ?>">
             <input type="hidden" name="filter_no_email" value="<?= htmlspecialchars($filterNoEmail) ?>">
 
-            <h3>Red Table</h3>
+            <h3></h3>
             <table>
                 <thead>
                     <tr>

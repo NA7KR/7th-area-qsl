@@ -16,12 +16,9 @@ limitations under the License.
  */
 
 session_start();
-$root = realpath($_SERVER["DOCUMENT_ROOT"]);
-
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 
 $title = "Calls DNU Silent Key No Cards";
+
 $selectedSection   = null;
 // Ensure user is logged in
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
@@ -29,39 +26,9 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
+$root = realpath($_SERVER["DOCUMENT_ROOT"]);
 include("$root/backend/header.php");
-$config = include($root . '/config.php');
 
-/**
- * Create a PDO connection using config array: ['host','dbname','username','password'].
- */
-function getPDOConnection(array $dbInfo)
-{
-    try {
-        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
-        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $pdo;
-    } catch (PDOException $e) {
-        die("Database connection failed: " . $e->getMessage());
-    }
-}
-
-/**
- * Fetch all rows from the specified table.
- */
-function fetchData(PDO $pdo, $tableName)
-{
-    $query = "SELECT * FROM `$tableName` ORDER BY `Call` ASC";
-
-    try {
-        $stmt = $pdo->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        die("Error retrieving data: " . $e->getMessage());
-    }
-}
 
 // ----------------- MAIN -----------------
 $dataRows = [];
@@ -75,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo = getPDOConnection($dbInfo);
 
         // Fetch data from the specified table
-        $dataRows = fetchData($pdo, 'tbl_Operator');
+        $dataRows = fetchData3($pdo, 'tbl_Operator');
     } else {
         echo "Error: Invalid or missing section configuration.";
     }
@@ -144,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </tbody>
         </table>
     <?php else: ?>
-        <p>No data found or there was an error retrieving the data.</p>
+        
     <?php endif; ?>
 </div>
 

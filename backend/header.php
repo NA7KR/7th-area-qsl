@@ -21,6 +21,8 @@ $config = include($root . '/config.php');
 $pages = $config['pages'];
 $admin = $config['admin'];
 
+include 'functions.php';
+
 // Check if the user is logged in
 $isLoggedIn = isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true; // Set this based on your login logic
 

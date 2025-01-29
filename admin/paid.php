@@ -17,14 +17,8 @@ limitations under the License.
 
 session_start();
 
-// Debugging
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Users to Pay Page";
-$config = include($root . '/config.php');
 
 include("$root/backend/header.php");
 
@@ -32,53 +26,6 @@ include("$root/backend/header.php");
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
-}
-
-/**
- * Create a new PDO connection based on $dbConfig (host, dbname, username, password).
- */
-function getPDOConnection($dbConfig) {
-    try {
-        $dsn = "mysql:host={$dbConfig['host']};dbname={$dbConfig['dbname']};charset=utf8";
-        $pdo = new PDO($dsn, $dbConfig['username'], $dbConfig['password']);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $pdo;
-    } catch (PDOException $e) {
-        die("Database connection failed: " . $e->getMessage());
-    }
-}
-
-/**
- * Fetch data from a table (in the given columns) and return as an array of associative rows.
- *
- * @param PDO    $pdo
- * @param string $tableName   Table name, e.g. 'tbl_CardRec'
- * @param string $columns     Comma-separated list of columns, e.g. '`Call`,`CardsReceived`'
- *
- * @return array Array of associative arrays. Each element = row from DB.
- */
-function fetchData($pdo, $tableName, $columns = '*') {
-    // Wrap each column in backticks if not already
-    $escapedColumns = array_map(function ($col) {
-        $col = trim($col);
-        return (str_contains($col, '`')) ? $col : "`$col`";
-    }, explode(',', $columns));
-
-    $columnsString = implode(',', $escapedColumns);
-    $query = "SELECT $columnsString FROM `$tableName`";
-
-    try {
-        $stmt = $pdo->query($query);
-        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (empty($data)) {
-            error_log("No data found in table `$tableName` for columns $columns.");
-        }
-
-        return $data;
-    } catch (PDOException $e) {
-        die("Error fetching data from `$tableName`: " . $e->getMessage());
-    }
 }
 
 /** 
@@ -280,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
     </style>
 
-    <img src="/7thArea.png" alt="7th Area" />
+    
     <h1 class="my-4 text-center">7th Area QSL Bureau</h1>
 
     <form method="POST">

@@ -15,18 +15,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-namespace MoneyTracker;
-
-
-
-use PDO;
-use PDOException;
-
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
-
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 
 $title = "Money Tracker";
 
@@ -37,53 +27,6 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 }
 
 include("$root/backend/header.php");
-$config = include($root . '/config.php');
-
-/**
- * Create a PDO connection using config array: ['host','dbname','username','password'].
- */
-function getPDOConnection(array $dbInfo): PDO
-{
-    try {
-        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
-        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $pdo;
-    } catch (PDOException $e) {
-        error_log("Database connection failed: " . $e->getMessage());
-        throw new \RuntimeException("Database connection failed.");
-    }
-}
-
-/**
- * Fetch all rows from tbl_Expense, optionally with date filtering.
- */
-function fetchAllExpenses(PDO $pdo, string $tableName, ?string $startDate = null, ?string $endDate = null, ?string $dateColumn = null): array
-{
-    $query = "SELECT * FROM `$tableName`";
-    $params = [];
-
-    if ($dateColumn && $startDate && $endDate) {
-        $query .= " WHERE `$dateColumn` BETWEEN :startDate AND :endDate";
-        $params[':startDate'] = $startDate;
-        $params[':endDate']   = $endDate;
-    }
-
-    $query .= " ORDER BY `ID` ASC";
-
-    try {
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($params);
-        return [
-            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-            'query' => $query,
-            'params' => $params
-        ];
-    } catch (PDOException $e) {
-        error_log("Error retrieving expense data: " . $e->getMessage());
-        throw new \RuntimeException("Error retrieving expense data.");
-    }
-}
 
 // ----------------- MAIN -----------------
 $selectedLetter   = null;
