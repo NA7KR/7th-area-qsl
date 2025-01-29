@@ -215,59 +215,52 @@ document.addEventListener('DOMContentLoaded', function() {
     const callInput = document.getElementById('Call');
     const letterSelect = document.getElementById('letter');
     const letterForm = document.querySelector('form');
-    const statusLabel = document.getElementById('Status');
-    const submitCardButton = document.getElementById('submitCardButton');
     const cardsToMailInput = document.getElementById('CardsToMail');
     const weightInput = document.getElementById('weight');
     const postageCostInput = document.getElementById('PostageCost');
-    const otherCostInput = document.getElementById('OtherCost');
     const totalCostInput = document.getElementById('TotalCost');
-    const cardsOnHandLabel = document.getElementById('CardsOnHand');
+    const submitCardButton = document.getElementById('submitCardButton');
+    const statusLabel = document.getElementById('Status');
     const mailInstLabel = document.getElementById('Mail-Inst');
     const accountBalanceLabel = document.getElementById('AccountBalance');
-    const submitForm = document.getElementById('submitForm');
-
-    // Standardized error text for missing data
-    const missingDataText = 'Data not found';
-
+    const cardsOnHandLabel = document.getElementById('CardsOnHand');
+    const submitForm = document.querySelector('form:not([name="letter_select_form"])');
+    const missingDataText = 'No data available';
+    
+    // Initially disable call input
+    callInput.disabled = true;
+    
     // Initially disable all inputs
-    function initializeInputs() {
-        callInput.disabled = true;
-        cardsToMailInput.disabled = true;
-        weightInput.disabled = true;
-        postageCostInput.disabled = true;
-        otherCostInput.disabled = true;
-        totalCostInput.disabled = true;
-    }
+    callInput.disabled = true;
+    cardsToMailInput.disabled = true;
+    weightInput.disabled = true;
+    postageCostInput.disabled = true;
+    totalCostInput.disabled = true;
 
-    // Call initialization
-    initializeInputs();
-
-    // Add observer for ID changes
-    const idObserver = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (window.nextID) {
-                callInput.disabled = false;
-            }
+    // Handle the letter selection form submission
+    letterForm.addEventListener('submit', function(event) {
+        // Only handle the letter select form
+        if (!event.target.querySelector('input[name="letter_select_form"]')) {
+            return;
+        }
+        
+        // Don't disable the call input after submitting the letter selection
+        event.preventDefault();
+        
+        // Submit the form using fetch or similar to avoid page reload
+        const formData = new FormData(event.target);
+        fetch(event.target.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(() => {
+            // Enable the call input after letter is selected
+            callInput.disabled = false;
         });
     });
 
-    // Start observing
-    idObserver.observe(document.documentElement, {
-        childList: true,
-        subtree: true
-    });
-
-    // Form submit handler
-    letterForm.addEventListener('submit', function() {
-        setTimeout(() => {
-            if (window.nextID) {
-                callInput.disabled = false;
-            }
-        }, 100);
-    });
-
-    // Check on page load
+    // Enable call input if ID exists on page load
     if (window.nextID) {
         callInput.disabled = false;
     }
@@ -277,11 +270,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const hasValue = this.value.trim() !== '';
         cardsToMailInput.disabled = !hasValue;
         
+        // If Call is empty, disable all subsequent fields
         if (!hasValue) {
-            cardsToMailInput.disabled = true;
+            cardsToMailInput.value = '';
+            weightInput.value = '';
+            postageCostInput.value = '';
+            totalCostInput.value = '';
+            
             weightInput.disabled = true;
             postageCostInput.disabled = true;
-            otherCostInput.disabled = true;
             totalCostInput.disabled = true;
         }
     });
@@ -291,9 +288,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const hasValue = this.value.trim() !== '';
         weightInput.disabled = !hasValue;
         
+        // If Cards to Mail is empty, disable and clear subsequent fields
         if (!hasValue) {
+            weightInput.value = '';
+            postageCostInput.value = '';
+            totalCostInput.value = '';
+            
             postageCostInput.disabled = true;
-            otherCostInput.disabled = true;
             totalCostInput.disabled = true;
         }
     });
@@ -303,8 +304,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const hasValue = this.value.trim() !== '';
         postageCostInput.disabled = !hasValue;
         
+        // If Weight is empty, disable and clear subsequent fields
         if (!hasValue) {
-            otherCostInput.disabled = true;
+            postageCostInput.value = '';
+            totalCostInput.value = '';
             totalCostInput.disabled = true;
         }
     });
@@ -312,26 +315,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Enable/disable fields based on Postage Cost input
     postageCostInput.addEventListener('input', function() {
         const hasValue = this.value.trim() !== '';
-        otherCostInput.disabled = !hasValue;
-        
-        if (!hasValue) {
-            totalCostInput.disabled = true;
-        }
-        calculateTotal();
-    });
-
-    // Enable/disable Total Cost based on Other Cost input
-    otherCostInput.addEventListener('input', function() {
-        const hasValue = this.value.trim() !== '';
         totalCostInput.disabled = !hasValue;
+        
+        // If Postage Cost is empty, clear total
+        if (!hasValue) {
+            totalCostInput.value = '';
+        }
         calculateTotal();
     });
 
     // Calculate Total Cost
     function calculateTotal() {
         const postageCost = parseFloat(postageCostInput.value) || 0;
-        const otherCost = parseFloat(otherCostInput.value) || 0;
-        totalCostInput.value = (postageCost + otherCost).toFixed(2);
+        totalCostInput.value = postageCost.toFixed(2);
     }
 
     // Validate numeric input
@@ -349,7 +345,6 @@ document.addEventListener('DOMContentLoaded', function() {
     cardsToMailInput.addEventListener('input', validateNumericInput);
     weightInput.addEventListener('input', validateNumericInput);
     postageCostInput.addEventListener('input', validateNumericInput);
-    otherCostInput.addEventListener('input', validateNumericInput);
 
     // Normalize status text for comparison
     function normalizeStatus(status) {
@@ -450,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCardsOnHandLabel();
     });
 
-    // Handle popup window
+    // Handle popup window for postage cost
     postageCostInput.addEventListener('click', function() {
         const letter = letterSelect.value;
         const weight = weightInput.value;
@@ -461,12 +456,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Populate hidden fields before form submission
     submitForm.addEventListener('submit', function(event) {
-        event.preventDefault(); // Prevent the default form submission
+        event.preventDefault();
         document.querySelector('input[name="Call"]').value = callInput.value;
         document.querySelector('input[name="CardsToMail"]').value = cardsToMailInput.value;
         document.querySelector('input[name="weight"]').value = weightInput.value;
         document.querySelector('input[name="PostageCost"]').value = postageCostInput.value;
-        document.querySelector('input[name="OtherCost"]').value = otherCostInput.value;
         document.querySelector('input[name="TotalCost"]').value = totalCostInput.value;
 
         // Debugging: Log the values to the console
@@ -474,10 +468,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('CardsToMail:', cardsToMailInput.value);
         console.log('Weight:', weightInput.value);
         console.log('PostageCost:', postageCostInput.value);
-        console.log('OtherCost:', otherCostInput.value);
         console.log('TotalCost:', totalCostInput.value);
 
-        submitForm.submit(); // Submit the form programmatically
+        submitForm.submit();
     });
 
     // Initialize button state on page load
