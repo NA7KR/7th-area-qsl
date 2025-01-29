@@ -220,151 +220,6 @@ function fetchAllExpenses(PDO $pdo, string $tableName, ?string $startDate = null
     }
 }
 
-function fetchData($pdo, $tableName, $columns = '*') {
-    // Wrap each column in backticks if not already
-    $escapedColumns = array_map(function ($col) {
-        $col = trim($col);
-        return (str_contains($col, '`')) ? $col : "`$col`";
-    }, explode(',', $columns));
-
-    $columnsString = implode(',', $escapedColumns);
-    $query = "SELECT $columnsString FROM `$tableName`";
-
-    try {
-        $stmt = $pdo->query($query);
-        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (empty($data)) {
-            error_log("No data found in table `$tableName` for columns $columns.");
-        }
-
-        return $data;
-    } catch (PDOException $e) {
-        die("Error fetching data from `$tableName`: " . $e->getMessage());
-    }
-}
-
-function fetchData2(PDO $pdo, $tableName)
-{
-    $output = [];
-
-    try {
-        // Query every column from the specified table
-        $stmt = $pdo->query("SELECT * FROM `$tableName`");
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // If the table is empty or doesn't exist
-        if (!$rows) {
-            return [];
-        }
-
-        // Build CSV header from column names
-        $headers = array_keys($rows[0]); // e.g. ['Call','CardsReceived','FirstName',...]
-        $headerLine = '"' . implode('","', $headers) . '"';
-        $output[] = $headerLine;
-
-        // Build CSV lines for each row
-        foreach ($rows as $row) {
-            $lineParts = [];
-            foreach ($headers as $colName) {
-                $val = $row[$colName] ?? '';
-                // Escape double quotes
-                $val = str_replace('"', '""', $val);
-                $lineParts[] = "\"$val\"";
-            }
-            $output[] = implode(',', $lineParts);
-        }
-    } catch (PDOException $e) {
-        echo "Error: Could not retrieve data from $tableName. " . $e->getMessage() . "<br>";
-        return [];
-    }
-
-    return $output;
-}
-
-/**
- * Fetch all rows from the specified table.
- */
-function fetchData3(PDO $pdo, $tableName)
-{
-    $query = "SELECT * FROM `$tableName` ORDER BY `Call` ASC";
-
-    try {
-        $stmt = $pdo->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (PDOException $e) {
-        die("Error retrieving data: " . $e->getMessage());
-    }
-}
-
-/**
- * Fetches data from MySQL using PDO, returning CSV-like lines so parseMailedData() stays unchanged.
- *
- * @param PDO    $pdo               PDO connection to the MySQL database
- * @param string $tableName         The table from which to retrieve data (e.g., 'tbl_CardM')
- * @param string $startDate         Optional start date (YYYY-MM-DD) for filtering
- * @param string $endDate           Optional end date (YYYY-MM-DD) for filtering
- * @param bool   $enableDateFilter  Whether to apply the date range filtering
- * @param bool   $debugMode         If true, echoes the SQL query for debugging
- *
- * @return string[] Array of CSV lines (the first line is a header, subsequent lines are data)
- */
-function fetchData4(
-    PDO $pdo,
-    string $tableName,
-    ?string $startDate = null,
-    ?string $endDate = null,
-    bool $enableDateFilter = false,
-
-): array {
-    // Assuming the table has columns: Call (VARCHAR), CardsMailed (INT), DateMailed (DATE/DATETIME)
-    $query      = "SELECT `Call`, `CardsMailed`, `DateMailed` FROM `$tableName`";
-    $conditions = [];
-
-    if ($enableDateFilter && $startDate && $endDate) {
-        // Ensure your actual table column is typed as DATE/DATETIME
-        $conditions[] = "`DateMailed` BETWEEN :startDate AND :endDate";
-    }
-
-    if (!empty($conditions)) {
-        $query .= " WHERE " . implode(' AND ', $conditions);
-    }
-
-    try {
-        $stmt = $pdo->prepare($query);
-
-        if ($enableDateFilter && $startDate && $endDate) {
-            // Bind :startDate and :endDate as strings in YYYY-MM-DD format
-            $stmt->bindValue(':startDate', $startDate);
-            $stmt->bindValue(':endDate',   $endDate);
-        }
-
-        $stmt->execute();
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    } catch (PDOException $e) {
-        echo "Error: " . $e->getMessage();
-        return [];
-    }
-
-    // Convert the result set into CSV lines for parseMailedData().
-    // The first line is the CSV header that parseMailedData() expects.
-    $csvLines   = [];
-    $csvLines[] = "Call,CardsMailed,DateMailed"; // matches the columns we selected
-
-    foreach ($rows as $resultRow) {
-        // Safely handle potential null fields
-        $call        = '"' . ($resultRow['Call']        ?? '') . '"';
-        $cardsMailed = '"' . ($resultRow['CardsMailed'] ?? '') . '"';
-        $dateMailed  = '"' . ($resultRow['DateMailed']  ?? '') . '"';
-
-        // Create a CSV line
-        $csvLines[] = implode(',', [$call, $cardsMailed, $dateMailed]);
-    }
-    return $csvLines;
-}
-
 /**
  * Trims each header string
  */
@@ -529,8 +384,14 @@ function handleFormSubmission(array $config, bool $debugMode): array
     }
 
     // Fetch from tbl_CardM
-    $csvMailedData = fetchData4($pdo, 'tbl_CardM', $startDate, $endDate, $enableDateFilter);
-
+    $csvMailedData = fetchDataCombined(
+        $pdo,
+        'tbl_CardM',
+        ['Call', 'CardsMailed', 'DateMailed'], // Or "Call,CardsMailed,DateMailed" or omit for all columns "*"
+        $startDate, // Your start date (or null if not filtering)
+        $endDate,   // Your end date (or null if not filtering)
+        $enableDateFilter // Whether to use date filtering
+    );
     // Parse into array & total
     return [$selectedLetter, parseMailedData($csvMailedData)];
 }
@@ -592,5 +453,170 @@ function accumulateCallData(array $rawData, array $keyIndexes): array {
     return $aggregated;
 }
 
+function fetchDataNEW(PDO $pdo, string $tableName, string $columns = "*", string $orderBy = "", string $whereClause = "", ?string $startDate = null, ?string $endDate = null, bool $enableDateFilter = false): array {
+    try {
+        $sql = "SELECT ";
 
+        if ($columns === "*") {
+            $sql .= "*";
+        } else {
+            $columns = trim($columns);
+
+            if (empty($columns)) {
+                $sql .= "*";
+            } else {
+                $escapedColumns = array_map(function ($col) {
+                    $col = trim($col);
+                    return (str_contains($col, '`')) ? $col : "`$col`";
+                }, explode(',', $columns));
+
+                $columnsString = implode(',', $escapedColumns);
+                $sql .= $columnsString;
+            }
+        }
+
+        $sql .= " FROM `" . $tableName . "`";
+
+        // Date Filtering
+        if ($enableDateFilter && $startDate !== null && $endDate !== null) {
+            $dateColumn = "`DateColumn`"; // REPLACE with your actual date column name!
+            $sql .= " WHERE " . $dateColumn . " BETWEEN :startDate AND :endDate";
+
+            if (!empty($whereClause)) {
+                $sql .= " AND " . $whereClause;
+            }
+        } else if (!empty($whereClause)) {
+            $sql .= " WHERE " . $whereClause;
+        }
+
+
+        if (!empty($orderBy)) {
+            $sql .= " " . $orderBy;
+        }
+        
+        $stmt = $pdo->prepare($sql);
+
+        if ($enableDateFilter && $startDate !== null && $endDate !== null) {
+            $stmt->bindValue(':startDate', $startDate);
+            $stmt->bindValue(':endDate', $endDate);
+        }
+
+        $stmt->execute();
+
+        if ($stmt === false) {
+            $errorInfo = $pdo->errorInfo();
+            error_log("PDO Error: " . $errorInfo[2]);
+            throw new Exception("Error executing query: " . $errorInfo[2]);
+        }
+
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (empty($data) && $columns !== "*") {
+            error_log("No data found in table `$tableName` for columns $columns.");
+        }
+
+        return $data;
+
+    } catch (Exception $e) {
+        error_log($e->getMessage());
+        return []; // Always return an array
+    }
+}
+
+
+/**
+ * Fetches data from MySQL using PDO, returning CSV-like lines.
+ *
+ *
+ * @param PDO $pdo PDO connection to the MySQL database
+ * @param string $tableName The table from which to retrieve data
+ * @param string|array $columns Columns to select (string like "Call,CardsMailed,DateMailed" or array)
+ * @param string|null $startDate Optional start date (YYYY-MM-DD) for filtering
+ * @param string|null $endDate Optional end date (YYYY-MM-DD) for filtering
+ * @param bool $enableDateFilter Whether to apply the date range filtering
+ *
+ * @return string[] Array of CSV lines (the first line is a header, subsequent lines are data)
+ */
+function fetchDataCombined(
+    PDO $pdo,
+    string $tableName,
+    string|array $columns = "*",
+    ?string $startDate = null,
+    ?string $endDate = null,
+    bool $enableDateFilter = false
+): array {
+
+    $query = "SELECT ";
+
+    if ($columns === "*") {
+        $query .= "*";
+    } else {
+        if (is_array($columns)) {
+            $escapedColumns = array_map(function ($col) {
+                $col = trim($col);
+                return (str_contains($col, '`')) ? $col : "`$col`";
+            }, $columns);
+            $columnsString = implode(',', $escapedColumns);
+
+            if (empty($columnsString)) { // Check if the columns string is empty
+                $query .= "*"; // Select all if no columns specified
+            } else {
+                $query .= $columnsString;
+            }
+        } else { // Assume string
+            $columns = trim($columns);
+            if (empty($columns)) {
+                $query .= "*";
+            } else {
+                $query .= $columns;
+            }
+        }
+    }
+
+    $query .= " FROM `$tableName`";
+
+    $conditions = [];
+
+    if ($enableDateFilter && $startDate && $endDate) {
+        $conditions[] = "`DateMailed` BETWEEN :startDate AND :endDate"; // Use your actual date column name
+    }
+
+    if (!empty($conditions)) {
+        $query .= " WHERE " . implode(' AND ', $conditions);
+    }
+   
+    try {
+        $stmt = $pdo->prepare($query);
+
+        if ($enableDateFilter && $startDate && $endDate) {
+            $stmt->bindValue(':startDate', $startDate);
+            $stmt->bindValue(':endDate', $endDate);
+        }
+
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    } catch (PDOException $e) {
+        echo "Error: " . $e->getMessage();
+        return [];
+    }
+
+    $csvLines = [];
+    if (!empty($rows)) { // Check if rows exist before trying to access keys.
+        $headers = array_keys($rows[0]);
+        $csvLines[] = '"' . implode('","', $headers) . '"';
+
+        foreach ($rows as $row) {
+            $lineParts = [];
+            foreach ($headers as $colName) {
+                $val = $row[$colName] ?? '';
+                $val = str_replace('"', '""', $val); // Escape double quotes
+                $lineParts[] = "\"$val\"";
+            }
+            $csvLines[] = implode(',', $lineParts);
+        }
+    }
+
+    return $csvLines;
+}
 ?>

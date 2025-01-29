@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo = getPDOConnection($dbInfo);
 
         // Fetch data from the specified table
-        $dataRows = fetchData3($pdo, 'tbl_Operator');
+        $dataRows = fetchDataNew($pdo, 'tbl_Operator');
     } else {
         echo "Error: Invalid or missing section configuration.";
     }
@@ -101,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <td><?= htmlspecialchars($row['Paid']) ?></td> -->
                         <td><?= htmlspecialchars($row['Status'] ?? '') ?></td>
                         <td><?= htmlspecialchars($row['Remarks'] ?? '') ?></td>
-                        <td><?= htmlspecialchars($row['Lic-exp'] ?? '') ?></td>
+                        <td><?= htmlspecialchars(date('Y-m-d', strtotime($row['Lic-exp'] ?? ''))) ?></td>
                     </tr>
                     <?php endif; ?>
                     <tr>

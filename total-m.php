@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $totalCostByCall = getCallTotals($pdo, 'tbl_CardM', ['keyName' => 'Call', 'valueName' => 'Total Cost']);
 
-            $rawOperatorData = fetchData($pdo, 'tbl_Operator', 'Call, `Mail-Inst`');
+            $rawOperatorData = fetchDataNew($pdo, 'tbl_Operator', 'Call, `Mail-Inst`');
             $mailInstructionByCall = [];
             if (!empty($rawOperatorData)) {
                 foreach ($rawOperatorData as $row) {

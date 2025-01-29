@@ -28,12 +28,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
-/** 
- * Sanitize email by removing '#mailto:...#' patterns.
- */
-function sanitizeEmail($email) {
-    return preg_replace('/#mailto:[^#]+#/', '', $email);
-}
+
 
 // -----------------------------------------
 // Initialize variables
@@ -78,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         $pdo = getPDOConnection($dbConfig);
 
         // 1) Fetch Card Data (tbl_CardRec)
-        $rawCardData = fetchData($pdo, 'tbl_CardRec', '`Call`,`CardsReceived`');
+        $rawCardData = fetchDataNew($pdo, 'tbl_CardRec', '`Call`,`CardsReceived`');
         foreach ($rawCardData as $row) {
             $call           = $row['Call'] ?? null;
             $cardsReceived  = (int)($row['CardsReceived'] ?? 0);
@@ -89,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
 
         // 2) Fetch Mailed Data (tbl_CardM)
-        $rawMailedData = fetchData($pdo, 'tbl_CardM', '`Call`,`CardsMailed`,`Postal Cost`,`Other Cost`');
+        $rawMailedData = fetchDataNew($pdo, 'tbl_CardM', '`Call`,`CardsMailed`,`Postal Cost`,`Other Cost`');
         foreach ($rawMailedData as $row) {
             $call        = $row['Call']          ?? null;
             $cardsMailed = (int)($row['CardsMailed']  ?? 0);
@@ -105,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
 
         // 3) Fetch Returned Data (tbl_CardRet)
-        $rawReturnedData = fetchData($pdo, 'tbl_CardRet', '`Call`,`CardsReturned`');
+        $rawReturnedData = fetchDataNew($pdo, 'tbl_CardRet', '`Call`,`CardsReturned`');
         foreach ($rawReturnedData as $row) {
             $call          = $row['Call'] ?? null;
             $cardsReturned = (int)($row['CardsReturned'] ?? 0);
@@ -116,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
 
         // 4) Fetch Money Received Data (tbl_MoneyR)
-        $rawMoneyReceivedData = fetchData($pdo, 'tbl_MoneyR', '`Call`,`MoneyReceived`');
+        $rawMoneyReceivedData = fetchDataNew($pdo, 'tbl_MoneyR', '`Call`,`MoneyReceived`');
         foreach ($rawMoneyReceivedData as $row) {
             $call          = $row['Call'] ?? null;
             $moneyReceived = (float)($row['MoneyReceived'] ?? 0.0);
@@ -127,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
 
         // 5) Fetch Operator Data (tbl_Operator)
-        $rawOperatorData = fetchData($pdo, 'tbl_Operator', '`Call`,`FirstName`,`LastName`,`Mail-Inst`,`E-Mail`,`Address_1`,`City`,`State`,`Zip`');
+        $rawOperatorData = fetchDataNew($pdo, 'tbl_Operator', '`Call`,`FirstName`,`LastName`,`Mail-Inst`,`E-Mail`,`Address_1`,`City`,`State`,`Zip`');
         foreach ($rawOperatorData as $row) {
             $call = $row['Call'] ?? null;
             if ($call) {
