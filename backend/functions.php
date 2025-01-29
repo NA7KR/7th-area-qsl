@@ -384,13 +384,14 @@ function handleFormSubmission(array $config, bool $debugMode): array
     }
 
     // Fetch from tbl_CardM
-    $csvMailedData = fetchDataCombined(
+    $csvMailedData = fetchData(
         $pdo,
         'tbl_CardM',
         ['Call', 'CardsMailed', 'DateMailed'], // Or "Call,CardsMailed,DateMailed" or omit for all columns "*"
         $startDate, // Your start date (or null if not filtering)
         $endDate,   // Your end date (or null if not filtering)
-        $enableDateFilter // Whether to use date filtering
+        $enableDateFilter, // Whether to use date filtering
+        true // Return CSV
     );
     // Parse into array & total
     return [$selectedLetter, parseMailedData($csvMailedData)];
@@ -453,80 +454,8 @@ function accumulateCallData(array $rawData, array $keyIndexes): array {
     return $aggregated;
 }
 
-function fetchDataNEW(PDO $pdo, string $tableName, string $columns = "*", string $orderBy = "", string $whereClause = "", ?string $startDate = null, ?string $endDate = null, bool $enableDateFilter = false): array {
-    try {
-        $sql = "SELECT ";
-
-        if ($columns === "*") {
-            $sql .= "*";
-        } else {
-            $columns = trim($columns);
-
-            if (empty($columns)) {
-                $sql .= "*";
-            } else {
-                $escapedColumns = array_map(function ($col) {
-                    $col = trim($col);
-                    return (str_contains($col, '`')) ? $col : "`$col`";
-                }, explode(',', $columns));
-
-                $columnsString = implode(',', $escapedColumns);
-                $sql .= $columnsString;
-            }
-        }
-
-        $sql .= " FROM `" . $tableName . "`";
-
-        // Date Filtering
-        if ($enableDateFilter && $startDate !== null && $endDate !== null) {
-            $dateColumn = "`DateColumn`"; // REPLACE with your actual date column name!
-            $sql .= " WHERE " . $dateColumn . " BETWEEN :startDate AND :endDate";
-
-            if (!empty($whereClause)) {
-                $sql .= " AND " . $whereClause;
-            }
-        } else if (!empty($whereClause)) {
-            $sql .= " WHERE " . $whereClause;
-        }
-
-
-        if (!empty($orderBy)) {
-            $sql .= " " . $orderBy;
-        }
-        
-        $stmt = $pdo->prepare($sql);
-
-        if ($enableDateFilter && $startDate !== null && $endDate !== null) {
-            $stmt->bindValue(':startDate', $startDate);
-            $stmt->bindValue(':endDate', $endDate);
-        }
-
-        $stmt->execute();
-
-        if ($stmt === false) {
-            $errorInfo = $pdo->errorInfo();
-            error_log("PDO Error: " . $errorInfo[2]);
-            throw new Exception("Error executing query: " . $errorInfo[2]);
-        }
-
-        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (empty($data) && $columns !== "*") {
-            error_log("No data found in table `$tableName` for columns $columns.");
-        }
-
-        return $data;
-
-    } catch (Exception $e) {
-        error_log($e->getMessage());
-        return []; // Always return an array
-    }
-}
-
-
 /**
- * Fetches data from MySQL using PDO, returning CSV-like lines.
- *
+ * Fetches data from MySQL using PDO, offering CSV or array output.
  *
  * @param PDO $pdo PDO connection to the MySQL database
  * @param string $tableName The table from which to retrieve data
@@ -534,17 +463,23 @@ function fetchDataNEW(PDO $pdo, string $tableName, string $columns = "*", string
  * @param string|null $startDate Optional start date (YYYY-MM-DD) for filtering
  * @param string|null $endDate Optional end date (YYYY-MM-DD) for filtering
  * @param bool $enableDateFilter Whether to apply the date range filtering
+ * @param bool $returnCSV If true, returns CSV-like output; otherwise, returns an array of associative arrays
+ * @param string $orderBy Optional ORDER BY clause
+ * @param string $whereClause Optional WHERE clause
  *
- * @return string[] Array of CSV lines (the first line is a header, subsequent lines are data)
+ * @return string[]|array Array of CSV lines or array of associative arrays
  */
-function fetchDataCombined(
+function fetchData(
     PDO $pdo,
     string $tableName,
     string|array $columns = "*",
     ?string $startDate = null,
     ?string $endDate = null,
-    bool $enableDateFilter = false
-): array {
+    bool $enableDateFilter = false,
+    bool $returnCSV = false,
+    string $orderBy = "",
+    string $whereClause = ""
+): array|string {
 
     $query = "SELECT ";
 
@@ -581,10 +516,19 @@ function fetchDataCombined(
         $conditions[] = "`DateMailed` BETWEEN :startDate AND :endDate"; // Use your actual date column name
     }
 
+    if (!empty($whereClause)) {
+        $conditions[] = $whereClause;
+    }
+
     if (!empty($conditions)) {
         $query .= " WHERE " . implode(' AND ', $conditions);
     }
-   
+
+    if (!empty($orderBy)) {
+        $query .= " " . $orderBy;
+    }
+    echo "Query:  $query<br>";
+
     try {
         $stmt = $pdo->prepare($query);
 
@@ -601,22 +545,27 @@ function fetchDataCombined(
         return [];
     }
 
-    $csvLines = [];
-    if (!empty($rows)) { // Check if rows exist before trying to access keys.
-        $headers = array_keys($rows[0]);
-        $csvLines[] = '"' . implode('","', $headers) . '"';
+    if ($returnCSV) {
+        $csvLines = [];
+        if (!empty($rows)) { // Check if rows exist before trying to access keys.
+            $headers = array_keys($rows[0]);
+            $csvLines[] = '"' . implode('","', $headers) . '"';
 
-        foreach ($rows as $row) {
-            $lineParts = [];
-            foreach ($headers as $colName) {
-                $val = $row[$colName] ?? '';
-                $val = str_replace('"', '""', $val); // Escape double quotes
-                $lineParts[] = "\"$val\"";
+            foreach ($rows as $row) {
+                $lineParts = [];
+                foreach ($headers as $colName) {
+                    $val = $row[$colName] ?? '';
+                    $val = str_replace('"', '""', $val); // Escape double quotes
+                    $lineParts[] = "\"$val\"";
+                }
+                $csvLines[] = implode(',', $lineParts);
             }
-            $csvLines[] = implode(',', $lineParts);
         }
+        return $csvLines;
+    } else {
+        return $rows;
     }
-
-    return $csvLines;
 }
+
+// ... rest of your code
 ?>

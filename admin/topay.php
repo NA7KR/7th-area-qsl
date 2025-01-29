@@ -79,10 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         }
 
         // Fetch data from the 4 MySQL tables using our new function
-        $rawCardData     = fetchDataCombined($pdo, 'tbl_CardRec');
-        $rawMailedData   = fetchDataCombined($pdo, 'tbl_CardM');
-        $rawReturnedData = fetchDataCombined($pdo, 'tbl_CardRet');
-        $rawOperatorData = fetchDataCombined($pdo, 'tbl_Operator');
+        //$rawCardData     = fetchData($pdo, 'tbl_CardRec',true );
+        $rawCardData = fetchData(  $pdo,  'tbl_CardRec', "*",  null, null, false, true );
+        $rawMailedData   = fetchData($pdo, 'tbl_CardM', "*",  null, null, false, true );
+        $rawReturnedData = fetchData($pdo, 'tbl_CardRet', "*",  null, null, false, true );
+        $rawOperatorData = fetchData($pdo, 'tbl_Operator', "*",  null, null, false, true );
 
         // ------------------------------------------------
         // Parse tbl_CardRec -> $cardData

@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo = getPDOConnection($dbInfo);
 
         // Fetch data from the specified table
-        $dataRows = fetchDataNew($pdo, 'tbl_Operator');
+        $dataRows = fetchData($pdo, 'tbl_Operator' , "*" , null,  null, false, false   );
     } else {
         echo "Error: Invalid or missing section configuration.";
     }
