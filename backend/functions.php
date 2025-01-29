@@ -297,6 +297,74 @@ function fetchData3(PDO $pdo, $tableName)
         die("Error retrieving data: " . $e->getMessage());
     }
 }
+
+/**
+ * Fetches data from MySQL using PDO, returning CSV-like lines so parseMailedData() stays unchanged.
+ *
+ * @param PDO    $pdo               PDO connection to the MySQL database
+ * @param string $tableName         The table from which to retrieve data (e.g., 'tbl_CardM')
+ * @param string $startDate         Optional start date (YYYY-MM-DD) for filtering
+ * @param string $endDate           Optional end date (YYYY-MM-DD) for filtering
+ * @param bool   $enableDateFilter  Whether to apply the date range filtering
+ * @param bool   $debugMode         If true, echoes the SQL query for debugging
+ *
+ * @return string[] Array of CSV lines (the first line is a header, subsequent lines are data)
+ */
+function fetchData4(
+    PDO $pdo,
+    string $tableName,
+    ?string $startDate = null,
+    ?string $endDate = null,
+    bool $enableDateFilter = false,
+
+): array {
+    // Assuming the table has columns: Call (VARCHAR), CardsMailed (INT), DateMailed (DATE/DATETIME)
+    $query      = "SELECT `Call`, `CardsMailed`, `DateMailed` FROM `$tableName`";
+    $conditions = [];
+
+    if ($enableDateFilter && $startDate && $endDate) {
+        // Ensure your actual table column is typed as DATE/DATETIME
+        $conditions[] = "`DateMailed` BETWEEN :startDate AND :endDate";
+    }
+
+    if (!empty($conditions)) {
+        $query .= " WHERE " . implode(' AND ', $conditions);
+    }
+
+    try {
+        $stmt = $pdo->prepare($query);
+
+        if ($enableDateFilter && $startDate && $endDate) {
+            // Bind :startDate and :endDate as strings in YYYY-MM-DD format
+            $stmt->bindValue(':startDate', $startDate);
+            $stmt->bindValue(':endDate',   $endDate);
+        }
+
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    } catch (PDOException $e) {
+        echo "Error: " . $e->getMessage();
+        return [];
+    }
+
+    // Convert the result set into CSV lines for parseMailedData().
+    // The first line is the CSV header that parseMailedData() expects.
+    $csvLines   = [];
+    $csvLines[] = "Call,CardsMailed,DateMailed"; // matches the columns we selected
+
+    foreach ($rows as $resultRow) {
+        // Safely handle potential null fields
+        $call        = '"' . ($resultRow['Call']        ?? '') . '"';
+        $cardsMailed = '"' . ($resultRow['CardsMailed'] ?? '') . '"';
+        $dateMailed  = '"' . ($resultRow['DateMailed']  ?? '') . '"';
+
+        // Create a CSV line
+        $csvLines[] = implode(',', [$call, $cardsMailed, $dateMailed]);
+    }
+    return $csvLines;
+}
+
 /**
  * Trims each header string
  */
@@ -379,5 +447,150 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig)
         echo "Message could not be sent to $call ($to). Mailer Error: {$mail->ErrorInfo}<br>";
     }
 }
+
+/**
+ * Parses CSV-like data for "Call" and "CardsMailed" columns, returning an array plus total cards mailed.
+ * 
+ * @param string[] $rawData CSV lines (the first line is the header, subsequent lines are data)
+ *
+ * @return array [ (array $mailedData), (int $totalCardsMailed) ]
+ */
+function parseMailedData(array $rawData): array
+{
+    if (empty($rawData)) {
+        return [[], 0];
+    }
+
+    // First line is the CSV header
+    $headers           = str_getcsv(array_shift($rawData), ",", "\"", "\\");
+    $callIndex         = array_search('Call',        $headers);
+    $cardsMailedIndex  = array_search('CardsMailed', $headers);
+
+    if ($callIndex === false || $cardsMailedIndex === false) {
+        echo "Error: Could not find the required columns in the data.";
+        return [[], 0];
+    }
+
+    $mailedData       = [];
+    $totalCardsMailed = 0;
+
+    foreach ($rawData as $line) {
+        $columns = str_getcsv($line, ",", "\"", "\\");
+        if (isset($columns[$callIndex]) && isset($columns[$cardsMailedIndex])) {
+            $call              = $columns[$callIndex];
+            $cardsMailed       = (int) $columns[$cardsMailedIndex];
+            $mailedData[]      = [
+                'Call'        => $call,
+                'CardsMailed' => $cardsMailed,
+            ];
+            $totalCardsMailed += $cardsMailed;
+        }
+    }
+
+    // Sort by Call sign
+    usort($mailedData, fn($a, $b) => strcasecmp($a['Call'], $b['Call']));
+
+    return [$mailedData, $totalCardsMailed];
+}
+
+/**
+ * Handles form submission, opens a PDO connection, fetches & parses data, and returns an array with results.
+ *
+ * @param array $config    Configuration array including 'sections' with DB credentials
+ * @param bool  $debugMode Whether to echo the SQL query for debugging
+ *
+ * @return array [ (string|null $selectedLetter), (array $parsedData) ]
+ */
+function handleFormSubmission(array $config, bool $debugMode): array
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        return [null, [[], 0]];
+    }
+
+    $selectedLetter   = $_POST['letter']            ?? null;
+    $enableDateFilter = isset($_POST['dateFilterCheckbox']);
+    $startDate        = $_POST['startDate']         ?? null; // e.g., "2025-01-01"
+    $endDate          = $_POST['endDate']           ?? null; // e.g., "2025-01-30"
+
+    if (!$selectedLetter || !isset($config['sections'][$selectedLetter])) {
+        echo "Error: Invalid database configuration.";
+        return [null, [[], 0]];
+    }
+
+    // Build PDO connection from config
+    $dbInfo = $config['sections'][$selectedLetter];
+
+    try {
+        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
+        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    } catch (PDOException $e) {
+        die("Connection failed: " . $e->getMessage());
+    }
+
+    // Fetch from tbl_CardM
+    $csvMailedData = fetchData4($pdo, 'tbl_CardM', $startDate, $endDate, $enableDateFilter);
+
+    // Parse into array & total
+    return [$selectedLetter, parseMailedData($csvMailedData)];
+}
+function getCallTotals(PDO $pdo, string $tableName, array $keyIndexes): array
+{
+    $rawData = fetchTableData($pdo, $tableName, [$keyIndexes['keyName'], $keyIndexes['valueName']]);
+    return !empty($rawData)
+    ? accumulateCallData($rawData, $keyIndexes)
+    : [];
+
+}
+/**
+ * Fetches data from a given table with optional conditions and parameters.
+ *
+ * @param PDO $pdo
+ * @param string $tableName
+ * @param array $columns      Array of column names to select (defaults to all: ['*']).
+ * @param string|null $conditions  SQL WHERE clause conditions (e.g., "Call = :call").
+ * @param array $params       Parameters for the prepared statement (e.g., [':call' => 'W7XYZ']).
+ * @return array             An array of associative arrays representing the fetched rows.
+ */
+function fetchTableData(PDO $pdo, string $tableName, array $columns = ['*'], ?string $conditions = null, array $params = []): array {  // ?string for nullable
+    $columnsList = implode(", ", array_map(fn($col) => "`$col`", $columns));
+    $query = "SELECT $columnsList FROM `$tableName`";
+
+    if ($conditions !== null) { // Explicitly check for null
+        $query .= " WHERE $conditions";
+    }
+
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error fetching data from $tableName: " . $e->getMessage());
+        return [];
+    }
+}
+
+
+/**
+ * Aggregates numeric values by call sign.
+ *
+ * @param array $rawData    An array of associative arrays, where each array represents a row from the database.
+ * @param array $keyIndexes  An associative array containing the keys for the 'call sign' and 'value' columns:
+ *                           ['keyName' => 'Call', 'valueName' => 'CardsReceived'] (Example)
+ * @return array            An associative array where the keys are the call signs and the values are the 
+ *                           summed numeric values.
+ */
+function accumulateCallData(array $rawData, array $keyIndexes): array {
+    $aggregated = [];
+    foreach ($rawData as $row) {
+        $callSign = $row[$keyIndexes['keyName']];
+        $value = (float)$row[$keyIndexes['valueName']]; // Cast to float for numeric operations
+
+        // Use the null coalescing operator (??) for cleaner aggregation:
+        $aggregated[$callSign] = ($aggregated[$callSign] ?? 0) + $value;
+    }
+    return $aggregated;
+}
+
 
 ?>

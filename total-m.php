@@ -18,205 +18,98 @@ $title = "Cards on Hand";
 
 include_once("$root/config.php");
 include("$root/backend/header.php");
+include_once("$root/backend/functions.php"); // Include the functions file
 
 // Initialize variables
-$selectedSection   = null;
-$cardsReceivedByCall   = [];
-$cardsMailedByCall     = [];
-$cardsReturnedByCall   = [];
-$moneyReceivedByCall   = [];
+$selectedSection = null;
+$cardsReceivedByCall = [];
+$cardsMailedByCall = [];
+$cardsReturnedByCall = [];
+$moneyReceivedByCall = [];
 $mailInstructionByCall = [];
-$totalCardsReceived    = 0;
-$totalCardsMailed      = 0;
-$totalCardsReturned    = 0;
-$totalMoneyReceived    = 0;
-$totalCardsOnHand      = 0;
-$debugMode            = isset($_GET['debug']) && $_GET['debug'] === 'true';
+$totalCardsReceived = 0;
+$totalCardsMailed = 0;
+$totalCardsReturned = 0;
+$totalMoneyReceived = 0;
+$totalCardsOnHand = 0;
+$debugMode = isset($_GET['debug']) && $_GET['debug'] === 'true';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Retrieve the raw input
     $selectedSection = filter_input(INPUT_POST, 'letter', FILTER_DEFAULT) ?? '';
-
-    // Sanitize input
     $selectedSection = strip_tags($selectedSection);
     $selectedSection = htmlspecialchars($selectedSection, ENT_QUOTES, 'UTF-8');
 
-    // Now $selectedSection is safe to use in HTML context
     if ($selectedSection && isset($config['sections'][$selectedSection])) {
         $dbConfig = $config['sections'][$selectedSection] ?? null;
 
         if ($dbConfig) {
-            $host     = $dbConfig['host'];
-            $dbname   = $dbConfig['dbname'];
-            $username = $dbConfig['username'];
-            $password = $dbConfig['password'];
-
             try {
-                $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $username, $password);
-                $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            } catch (PDOException $e) {
-                die("Connection failed: " . $e->getMessage());
+                $pdo = getPDOConnection($dbConfig);
+            } catch (RuntimeException $e) {
+                die("Database connection failed: " . $e->getMessage());
             }
 
-            /**
-             * Fetches data from a given table and returns as an array of associative arrays.
-             * 
-             * @param PDO    $pdo
-             * @param string $tableName
-             * @param array  $columns
-             * @param string $conditions
-             * @param array  $params
-             * @return array
-             */
-            function fetchTableData(PDO $pdo, $tableName, $columns = ['*'], $conditions = null, $params = [])
-            {
-                try {
-                    $columnsList = implode(", ", array_map(fn($col) => "`$col`", $columns));
-                    $query       = "SELECT $columnsList FROM `$tableName`";
-
-                    if ($conditions) {
-                        $query .= " WHERE $conditions";
-                    }
-
-                    $stmt = $pdo->prepare($query);
-                    $stmt->execute($params);
-
-                    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-                } catch (PDOException $e) {
-                    echo "Error: Could not retrieve data from $tableName. " . $e->getMessage();
-                    return [];
-                }
-            }
-
-            /**
-             * Aggregates numeric values by call sign, returning an array with
-             * call signs as keys and summed numeric values as values.
-             * 
-             * @param array $rawData
-             * @param array $keyIndexes
-             * @return array
-             */
-            function accumulateCallData(array $rawData, array $keyIndexes): array
-            {
-                $aggregated = [];
-                foreach ($rawData as $row) {
-                    $callSign  = $row[$keyIndexes['keyName']];
-                    // Treat the target value as float
-                    $value     = (float) $row[$keyIndexes['valueName']];
-
-                    if (isset($aggregated[$callSign])) {
-                        $aggregated[$callSign] += $value;
-                    } else {
-                        $aggregated[$callSign] = $value;
-                    }
-                }
-                return $aggregated;
-            }
-
-            /**
-             * Fetches raw table data by columns, then accumulates numeric values by call sign.
-             * 
-             * @param PDO    $pdo
-             * @param string $tableName
-             * @param array  $keyIndexes
-             * @return array
-             */
-            function getCallTotals(PDO $pdo, string $tableName, array $keyIndexes): array
-            {
-                $rawData = fetchTableData($pdo, $tableName, [$keyIndexes['keyName'], $keyIndexes['valueName']]);
-                return !empty($rawData)
-                    ? accumulateCallData($rawData, $keyIndexes)
-                    : [];
-            }
-
-            // Retrieve totals for each table
-            $cardsReceivedByCall = getCallTotals($pdo, 'tbl_CardRec', [
-                'keyName'   => 'Call',
-                'valueName' => 'CardsReceived',
-            ]);
+            $cardsReceivedByCall = getCallTotals($pdo, 'tbl_CardRec', ['keyName' => 'Call', 'valueName' => 'CardsReceived']);
             $totalCardsReceived = array_sum($cardsReceivedByCall);
 
-            $cardsMailedByCall = getCallTotals($pdo, 'tbl_CardM', [
-                'keyName'   => 'Call',
-                'valueName' => 'CardsMailed',
-            ]);
+            $cardsMailedByCall = getCallTotals($pdo, 'tbl_CardM', ['keyName' => 'Call', 'valueName' => 'CardsMailed']);
             $totalCardsMailed = array_sum($cardsMailedByCall);
 
-            $cardsReturnedByCall = getCallTotals($pdo, 'tbl_CardRet', [
-                'keyName'   => 'Call',
-                'valueName' => 'CardsReturned',
-            ]);
+            $cardsReturnedByCall = getCallTotals($pdo, 'tbl_CardRet', ['keyName' => 'Call', 'valueName' => 'CardsReturned']);
             $totalCardsReturned = array_sum($cardsReturnedByCall);
 
-            $moneyReceivedByCall = getCallTotals($pdo, 'tbl_MoneyR', [
-                'keyName'   => 'Call',
-                'valueName' => 'MoneyReceived',
-            ]);
+            $moneyReceivedByCall = getCallTotals($pdo, 'tbl_MoneyR', ['keyName' => 'Call', 'valueName' => 'MoneyReceived']);
             $totalMoneyReceived = array_sum($moneyReceivedByCall);
 
-            // Get total cost from tbl_CardM
-            $totalCostByCall = getCallTotals($pdo, 'tbl_CardM', [
-                'keyName'   => 'Call',
-                'valueName' => 'Total Cost',
-            ]);
+            $totalCostByCall = getCallTotals($pdo, 'tbl_CardM', ['keyName' => 'Call', 'valueName' => 'Total Cost']);
 
-            // Retrieve mail instructions from tbl_Operator
-            $rawOperatorData = fetchTableData($pdo, 'tbl_Operator', ['Call', 'Mail-Inst']);
+            $rawOperatorData = fetchData($pdo, 'tbl_Operator', 'Call, `Mail-Inst`');
+            $mailInstructionByCall = [];
             if (!empty($rawOperatorData)) {
                 foreach ($rawOperatorData as $row) {
-                    // Use a null coalesce in case 'Mail-Inst' is missing
                     $mailInstructionByCall[$row['Call']] = strtolower(trim($row['Mail-Inst'] ?? ''));
                 }
             }
 
-            // Arrays to categorize operators based on their payment/mail instructions
-            $paidOperators   = [];
+            $paidOperators = [];
             $unpaidOperators = [];
-            $monthlyOperators    = [];
-            $quarterlyOperators  = [];
+            $monthlyOperators = [];
+            $quarterlyOperators = [];
             $fullPaymentOperators = [];
 
-            // Process each call sign from the cards received array
             foreach ($cardsReceivedByCall as $call => $cardsReceived) {
-                $cardsMailed   = $cardsMailedByCall[$call] ?? 0;
+                $cardsMailed = $cardsMailedByCall[$call] ?? 0;
                 $cardsReturned = $cardsReturnedByCall[$call] ?? 0;
-                $cardsOnHand   = $cardsReceived - $cardsMailed - $cardsReturned;
+                $cardsOnHand = $cardsReceived - $cardsMailed - $cardsReturned;
                 $totalCardsOnHand += $cardsOnHand;
 
                 $moneyReceived = $moneyReceivedByCall[$call] ?? 0;
-                $totalCost     = $totalCostByCall[$call] ?? 0;
-                $balance       = $moneyReceived - $totalCost;
+                $totalCost = $totalCostByCall[$call] ?? 0;
+                $balance = $moneyReceived - $totalCost;
 
-                // Determine mailing instruction; default to 'full'
                 $mailInst = $mailInstructionByCall[$call] ?? 'full';
 
-                // Build a single data entry for this call
                 $entry = [
-                    'Call'           => $call,
-                    'CardsReceived'  => $cardsReceived,
-                    'CardsMailed'    => $cardsMailed,
-                    'CardsReturned'  => $cardsReturned,
-                    'CardsOnHand'    => $cardsOnHand,
-                    'MailInst'       => $mailInst,
-                    'MoneyReceived'  => $moneyReceived,
-                    'TotalCost'      => $totalCost,
-                    'Balance'        => $balance,  // helpful for debugging
+                    'Call' => $call,
+                    'CardsReceived' => $cardsReceived,
+                    'CardsMailed' => $cardsMailed,
+                    'CardsReturned' => $cardsReturned,
+                    'CardsOnHand' => $cardsOnHand,
+                    'MailInst' => $mailInst,
+                    'MoneyReceived' => $moneyReceived,
+                    'TotalCost' => $totalCost,
+                    'Balance' => $balance,
                 ];
 
-                // Determine paid vs. unpaid
-                // (If cards on hand > 0 and either no payment or negative balance, mark as unpaid.)
                 if ($cardsOnHand > 0 && ($moneyReceived == 0 || $balance < $config['unpaid_threshold'])) {
                     $unpaidOperators[] = $entry;
                 } else {
                     $paidOperators[] = $entry;
                 }
 
-                // Categorize by payment frequency, but only if money was received
                 if ($moneyReceived > 0) {
-                    // Normalize the mailing instruction
                     $validOptions = ['monthly', 'quarterly', 'full'];
                     if (!in_array($mailInst, $validOptions, true)) {
-                        // Log or echo issues if needed
                         error_log("Unexpected mailing instruction: {$mailInst}. Defaulting to 'full'.");
                         $mailInst = 'full';
                     }
@@ -229,24 +122,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $quarterlyOperators[] = $entry;
                             break;
                         default:
-                            // 'full' or unrecognized -> treat as 'full'
                             $fullPaymentOperators[] = $entry;
                             break;
                     }
                 } else {
-                    // If no payment, default to 'full' but keep it in unpaid
                     $fullPaymentOperators[] = $entry;
-                    $unpaidOperators[]      = $entry;
+                    $unpaidOperators[] = $entry;
                 }
             }
 
-            // Sort the paid/unpaid operators alphabetically by call
             usort($paidOperators, fn($a, $b) => strcasecmp($a['Call'], $b['Call']));
             usort($unpaidOperators, fn($a, $b) => strcasecmp($a['Call'], $b['Call']));
 
-            // Filter out any entries that do not have cards on hand, if needed
-            $monthlyOperators    = array_filter($paidOperators, fn($row) => $row['MailInst'] === 'monthly' && $row['CardsOnHand'] > 0);
-            $quarterlyOperators  = array_filter($paidOperators, fn($row) => $row['MailInst'] === 'quarterly' && $row['CardsOnHand'] > 0);
+            $monthlyOperators = array_filter($paidOperators, fn($row) => $row['MailInst'] === 'monthly' && $row['CardsOnHand'] > 0);
+            $quarterlyOperators = array_filter($paidOperators, fn($row) => $row['MailInst'] === 'quarterly' && $row['CardsOnHand'] > 0);
             $fullPaymentOperators = array_filter($paidOperators, fn($row) => $row['MailInst'] === 'full' && $row['CardsOnHand'] > 0);
         } else {
             echo "Error: Database configuration for the selected section not found.";
