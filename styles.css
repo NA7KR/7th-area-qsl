@@ -141,9 +141,10 @@ input[type="submit"]:disabled, button:disabled {
     justify-content: center;
     align-items: center;
     background-color: #f8f9fa;
-    text-align: center;
+    text-align: auto;
     padding: 20px;
 }
+
 
 .center-content img {
     max-width: 100%;
