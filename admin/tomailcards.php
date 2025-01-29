@@ -14,7 +14,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
  */
-print_r($_POST);
+//print_r($_POST);
 
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
@@ -104,9 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
 </div>  
   
 <div class="center-content">
-    <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Mailed</h1>
     <!-- 1) Form for selecting the section (letter) -->
-    <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
+    <form method="POST" action="../backend/mailstamps.php" style="margin-top: 10px;" id="submitForm">
         <div style="display: grid; grid-template-columns: auto 1fr;center; gap: 5px; width: 100%; justify-content: space-between;border: 1px solid;">
             <label for="ID" style="text-align: right; font-weight: bold; width: 150px">ID:</label>
             <div style="flex-grow: 1; display: flex; justify-content: flex-end;">
@@ -167,6 +166,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
                     style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
                 >
             </div>
+            
+            <!-- Other Cost -->
+            <label for="OtherCost" style="text-align: right; font-weight: bold;">Other Cost:</label>
+            <div style="display: flex; align-items: center; gap: 1px; margin-bottom: 10px;">
+            <input
+                type="text"
+                id="OtherCost"
+                name="OtherCost"
+                required
+                class="form-control"
+                value="<?php echo isset($OtherCost) ? htmlspecialchars($OtherCost) : ''; ?>"
+                style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
+                >
+            </div>
             <!-- Total Cost -->
             <label for="Total Cost" style="text-align: right; font-weight: bold;">Total Cost:</label>
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
@@ -218,6 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cardsToMailInput = document.getElementById('CardsToMail');
     const weightInput = document.getElementById('weight');
     const postageCostInput = document.getElementById('PostageCost');
+    const otherCostInput = document.getElementById('OtherCost');
     const totalCostInput = document.getElementById('TotalCost');
     const submitCardButton = document.getElementById('submitCardButton');
     const statusLabel = document.getElementById('Status');
@@ -235,6 +249,7 @@ document.addEventListener('DOMContentLoaded', function() {
     cardsToMailInput.disabled = true;
     weightInput.disabled = true;
     postageCostInput.disabled = true;
+    otherCostInput.disabled = true;
     totalCostInput.disabled = true;
 
     // Handle the letter selection form submission
@@ -276,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
             weightInput.value = '';
             postageCostInput.value = '';
             totalCostInput.value = '';
-            
+            otherCostInput.disabled = true;
             weightInput.disabled = true;
             postageCostInput.disabled = true;
             totalCostInput.disabled = true;
@@ -293,7 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
             weightInput.value = '';
             postageCostInput.value = '';
             totalCostInput.value = '';
-            
+            otherCostInpu
             postageCostInput.disabled = true;
             totalCostInput.disabled = true;
         }
@@ -315,11 +330,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Enable/disable fields based on Postage Cost input
     postageCostInput.addEventListener('input', function() {
         const hasValue = this.value.trim() !== '';
-        totalCostInput.disabled = !hasValue;
+        otherCostInput.disabled = !hasValue;
         
         // If Postage Cost is empty, clear total
         if (!hasValue) {
-            totalCostInput.value = '';
+            otherCostInput.value = '';
         }
         calculateTotal();
     });
@@ -327,8 +342,24 @@ document.addEventListener('DOMContentLoaded', function() {
     // Calculate Total Cost
     function calculateTotal() {
         const postageCost = parseFloat(postageCostInput.value) || 0;
-        totalCostInput.value = postageCost.toFixed(2);
+        const otherCost = parseFloat(otherCostInput.value) || 0;
+        totalCostInput.value = (postageCost + otherCost).toFixed(2);
     }
+
+    postageCostInput.addEventListener('input', calculateTotal);
+    otherCostInput.addEventListener('input', calculateTotal);
+    // Enable/disable fields based on Postage Cost input
+    postageCostInput.addEventListener('input', function() {
+        const hasValue = this.value.trim() !== '';
+        otherCostInput.disabled = !hasValue;
+        totalCostInput.disabled = !hasValue;
+        
+        if (!hasValue) {
+            otherCostInput.value = '';
+            totalCostInput.value = '';
+        }
+        calculateTotal();
+    });
 
     // Validate numeric input
     function validateNumericInput(event) {
@@ -477,3 +508,8 @@ document.addEventListener('DOMContentLoaded', function() {
     toggleSubmitButton();
 });
 </script>
+
+<?php
+include("$root/backend/footer.php");
+?>
+
