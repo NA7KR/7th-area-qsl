@@ -18,6 +18,9 @@ limitations under the License.
 session_start();
 session_unset();
 session_destroy();
+if (!isset($_SESSION['loggedin'])) {
+    header("Refresh: 15; url=index.php"); // Redirect to index.php after 30 seconds
+}
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
