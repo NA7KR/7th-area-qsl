@@ -23,8 +23,7 @@ use PDOException;
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+
 
 $title = "Cards Disposed";
 $selectedSection = null;
@@ -39,59 +38,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
 }
 
 include("$root/backend/header.php");
-$config = include($root . '/config.php');
 
-/**
- * Create a PDO connection using config array: ['host','dbname','username','password'].
- */
-function getPDOConnection(array $dbInfo): PDO
-{
-    try {
-        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
-        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $pdo;
-    } catch (PDOException $e) {
-        error_log("Database connection failed: " . $e->getMessage());
-        throw new \RuntimeException("Database connection failed.");
-    }
-}
-
-/**
- * Fetch all rows from tbl_CardRet joined with tbl_Operator to get Status.
- */
-function fetchJoinedData(PDO $pdo, string $tableName1, string $tableName2, ?string $startDate = null, ?string $endDate = null): array
-{
-    $query = "SELECT tbl_CardRet.Call, SUM(tbl_CardRet.CardsReturned) AS TotalCardsReturned, MAX(tbl_Operator.`Status`) AS Status
-              FROM `$tableName1`
-              INNER JOIN `$tableName2` ON tbl_CardRet.Call = tbl_Operator.Call
-              WHERE tbl_CardRet.Call IS NOT NULL AND tbl_Operator.Call IS NOT NULL";
-
-    $params = [];
-
-    if ($startDate && $endDate) {
-        $query .= " AND tbl_CardRet.DateReturned BETWEEN :startDate AND :endDate";
-        $params[':startDate'] = $startDate;
-        $params[':endDate'] = $endDate;
-    }
-
-    $query .= " GROUP BY tbl_CardRet.Call ORDER BY tbl_CardRet.Call ASC";
-
-    //echo $query; // Debugging: Output the constructed query
-
-    try {
-        $stmt = $pdo->prepare($query);
-        $stmt->execute($params);
-        return [
-            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-            'query' => $query,
-            'params' => $params
-        ];
-    } catch (PDOException $e) {
-        error_log("Error retrieving data: " . $e->getMessage());
-        throw new \RuntimeException("Error retrieving data.");
-    }
-}
 
 // ----------------- MAIN -----------------
 $dataRows = [];

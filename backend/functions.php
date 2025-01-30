@@ -567,5 +567,89 @@ function fetchData(
     }
 }
 
-// ... rest of your code
+function fetchJoinedData(PDO $pdo, string $tableName1, string $tableName2, ?string $startDate = null, ?string $endDate = null): array
+{
+    $query = "SELECT tbl_CardRet.Call, SUM(tbl_CardRet.CardsReturned) AS TotalCardsReturned, MAX(tbl_Operator.`Status`) AS Status
+              FROM `$tableName1`
+              INNER JOIN `$tableName2` ON tbl_CardRet.Call = tbl_Operator.Call
+              WHERE tbl_CardRet.Call IS NOT NULL AND tbl_Operator.Call IS NOT NULL";
+
+    $params = [];
+
+    if ($startDate && $endDate) {
+        $query .= " AND tbl_CardRet.DateReturned BETWEEN :startDate AND :endDate";
+        $params[':startDate'] = $startDate;
+        $params[':endDate'] = $endDate;
+    }
+
+    $query .= " GROUP BY tbl_CardRet.Call ORDER BY tbl_CardRet.Call ASC";
+
+    //echo $query; // Debugging: Output the constructed query
+
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+        return [
+            'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
+            'query' => $query,
+            'params' => $params
+        ];
+    } catch (PDOException $e) {
+        error_log("Error retrieving data: " . $e->getMessage());
+        throw new \RuntimeException("Error retrieving data.");
+    }
+}
+
+/**
+ * Fetch mailed data for a single call.
+ * 
+ * @param PDO $pdo The PDO connection object
+ * @param string $callSign The call sign to fetch data for
+ * @return array The fetched data as an associative array
+ */
+function fetchMailedData(PDO $pdo, string $callSign): array
+{
+    // SQL query to fetch mailed data for the given call sign
+    $sql = "SELECT `Call`, `CardsMailed`, `Postal Cost`, `Other Cost`
+            FROM `tbl_CardM`
+            WHERE `Call` = :call";
+
+    // Log the SQL query and parameter for debugging
+    error_log("[DEBUG] SQL => $sql, param => $callSign");
+
+    // Prepare and execute the SQL statement
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':call', $callSign, PDO::PARAM_STR);
+    $stmt->execute();
+
+    // Fetch and return the result as an associative array
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Fetch money received data for a single call.
+ * 
+ * @param PDO $pdo The PDO connection object
+ * @param string $callSign The call sign to fetch data for
+ * @return array The fetched data as an associative array
+ */
+function fetchMoneyReceived(PDO $pdo, string $callSign): array
+{
+    // SQL query to fetch money received data for the given call sign
+    $sql = "SELECT `Call`, `MoneyReceived`
+            FROM `tbl_MoneyR`
+            WHERE `Call` = :call";
+
+    // Log the SQL query and parameter for debugging
+    error_log("[DEBUG] SQL => $sql, param => $callSign");
+
+    // Prepare and execute the SQL statement
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindParam(':call', $callSign, PDO::PARAM_STR);
+    $stmt->execute();
+
+    // Fetch and return the result as an associative array
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 ?>

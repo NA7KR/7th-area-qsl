@@ -17,24 +17,10 @@ limitations under the License.
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $config = include($root . '/config.php');
-
+include 'functions.php';
 // Return raw HTML <option> tags
 header('Content-Type: text/html; charset=utf-8');
 
-/**
- * Create a PDO connection using config array: ['host','dbname','username','password'].
- */
-function getPDOConnection(array $dbInfo)
-{
-    try {
-        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
-        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $pdo;
-    } catch (PDOException $e) {
-        die("Database connection failed: " . $e->getMessage());
-    }
-}
 
 $letter = $_POST['letter'] ?? null;
 $call   = $_POST['call']   ?? null;

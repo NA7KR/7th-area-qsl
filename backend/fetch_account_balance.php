@@ -19,87 +19,9 @@ limitations under the License.
 // Get the document root and include the configuration file
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $config = include($root . '/config.php');
-
+include('functions.php');
 // We'll return plain text (the balance)
 header('Content-Type: text/plain; charset=utf-8');
-
-/**
- * Create a PDO connection using config array: ['host','dbname','username','password'].
- * 
- * @param array $dbInfo Database connection information
- * @return PDO The PDO connection object
- */
-function getPDOConnection(array $dbInfo)
-{
-    try {
-        // Create the DSN string for the PDO connection
-        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
-        
-        // Create the PDO connection
-        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
-        
-        // Set the PDO error mode to exception
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
-        // Return the PDO connection object
-        return $pdo;
-    } catch (PDOException $e) {
-        // If there is an error, output the error message and exit
-        die("Database connection failed: " . $e->getMessage());
-    }
-}
-
-/**
- * Fetch mailed data for a single call.
- * 
- * @param PDO $pdo The PDO connection object
- * @param string $callSign The call sign to fetch data for
- * @return array The fetched data as an associative array
- */
-function fetchMailedData(PDO $pdo, string $callSign): array
-{
-    // SQL query to fetch mailed data for the given call sign
-    $sql = "SELECT `Call`, `CardsMailed`, `Postal Cost`, `Other Cost`
-            FROM `tbl_CardM`
-            WHERE `Call` = :call";
-
-    // Log the SQL query and parameter for debugging
-    error_log("[DEBUG] SQL => $sql, param => $callSign");
-
-    // Prepare and execute the SQL statement
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':call', $callSign, PDO::PARAM_STR);
-    $stmt->execute();
-
-    // Fetch and return the result as an associative array
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-/**
- * Fetch money received data for a single call.
- * 
- * @param PDO $pdo The PDO connection object
- * @param string $callSign The call sign to fetch data for
- * @return array The fetched data as an associative array
- */
-function fetchMoneyReceived(PDO $pdo, string $callSign): array
-{
-    // SQL query to fetch money received data for the given call sign
-    $sql = "SELECT `Call`, `MoneyReceived`
-            FROM `tbl_MoneyR`
-            WHERE `Call` = :call";
-
-    // Log the SQL query and parameter for debugging
-    error_log("[DEBUG] SQL => $sql, param => $callSign");
-
-    // Prepare and execute the SQL statement
-    $stmt = $pdo->prepare($sql);
-    $stmt->bindParam(':call', $callSign, PDO::PARAM_STR);
-    $stmt->execute();
-
-    // Fetch and return the result as an associative array
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
 
 // --------------- Main Script ---------------
 
