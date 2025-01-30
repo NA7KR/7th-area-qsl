@@ -527,7 +527,7 @@ function fetchData(
     if (!empty($orderBy)) {
         $query .= " " . $orderBy;
     }
-    echo "Query:  $query<br>";
+    //echo "Query:  $query<br>";
 
     try {
         $stmt = $pdo->prepare($query);
