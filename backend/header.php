@@ -55,13 +55,48 @@ $submenu = array_filter($admin['submenu'], function($item) use ($isLoggedIn) {
                 <a href="<?= htmlspecialchars($url) ?>"><?= htmlspecialchars($title) ?></a>
             <?php endforeach; ?>
             <div class="dropdown">
-                <a href="<?= htmlspecialchars($admin['Admin']) ?>">Admin</a>
-                <div class="dropdown-content">
-                    <?php foreach ($submenu as $subTitle => $subItem): ?>
+            <?php $role = htmlspecialchars($_SESSION['role'] ?? 'Admin'); ?>
+            <?php
+            //var_dump($role); // <-- Add this line
+
+            //var_dump($submenu); // <-- Add this line
+            
+      
+
+            $currentSubmenu = [];
+
+            if (isset($_SESSION['role'])) {
+                if ($role === 'Admin') {
+                    $currentSubmenu = $config['admin']['submenu'] ?? [];
+                } elseif ($role === 'Ops') {
+                    $currentSubmenu = $config['ops']['submenu'] ?? [];
+                }
+            }
+            
+          
+            ?>
+            
+            <a href="<?php echo $role; ?>"><?php echo $role; ?></a>
+            <div class="dropdown-content">
+                <?php foreach ($currentSubmenu as $subTitle => $subItem): ?>
+                    <?php
+                    $showMenuItem = true;
+            
+                    if (isset($subItem['login'])) {
+                        if ($subItem['login'] === true && !isset($_SESSION['loggedin'])) {
+                            $showMenuItem = false;
+                        } elseif ($subItem['login'] === false && isset($_SESSION['loggedin'])) {
+                            $showMenuItem = false;
+                        }
+                    }
+                    ?>
+            
+                    <?php if ($showMenuItem): ?>
                         <a href="<?= htmlspecialchars($subItem['url']) ?>"><?= htmlspecialchars($subTitle) ?></a>
-                    <?php endforeach; ?>
-                </div>
+                    <?php endif; ?>
+            
+                <?php endforeach; ?>
             </div>
-        </div>
     </nav>
+<?php
 

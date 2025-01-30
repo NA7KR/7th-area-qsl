@@ -15,64 +15,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 
-// Secure session settings
-session_set_cookie_params([
-    'lifetime' => 86400, // 24 hours
-    'path' => '/',
-    'domain' => $_SERVER['HTTP_HOST'],
-    'secure' => true, // Ensure cookie is sent over HTTPS
-    'httponly' => true, // Prevent JavaScript access to session cookie
-    'samesite' => 'Strict' // Prevent CSRF by disallowing third-party sites to send cookies
-]);
+ header("Location: login.php"); // Relative path
 
-session_start();
 
-$root = realpath($_SERVER["DOCUMENT_ROOT"]);
-$title = "Login Page";
-include("$root/backend/header.php"); 
-
-// Include the config file
-$config = include("$root/config.php");
-
-// Initialize error message
-$error = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
-
-    // Verify the username and password
-    if (isset($config['credentials'][$username])) {
-        $storedPasswordHash = $config['credentials'][$username];
-
-        if (password_verify($password, $storedPasswordHash)) {
-            // Regenerate session ID to prevent session fixation attacks
-            session_regenerate_id(true);
-
-            // Set session variables
-            $_SESSION['loggedin'] = true;
-            $_SESSION['username'] = $username;
-
-            // Redirect to a protected page
-            header('Location: index.php');
-            exit;
-        } else {
-            $error = 'Invalid username or password.';
-        }
-    } else {
-        $error = 'Invalid username or password.';
-    }
-}
-?>
-
-<div class="center-content">
-    <div class="login-container">
-        <img src="/7thArea.png" alt="7th Area" />
-        Welcome to Admin Area!!!
-      
-    </div>
-</div>
-
-<?php
-include("$root/backend/footer.php");
-?>
+ exit(); // Important: Stop further execution after the redirect
+ ?>
