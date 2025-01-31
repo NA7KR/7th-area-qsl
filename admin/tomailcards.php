@@ -55,7 +55,7 @@ $status = getStatusByCallAndLetter($call, $selectedLetter, $configdb);
 ?>
 <div class="center-content">
     <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Mailed</h1>
-    <!-- 1) Form for selecting the section (letter) -->
+
     <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
         <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: space-between;">
             <input type="hidden" name="letter_select_form" value="1">
@@ -74,134 +74,69 @@ $status = getStatusByCallAndLetter($call, $selectedLetter, $configdb);
                     <?php endif; ?>
                 </select>
             </div>
-            <?php
-            // Add this line to make the ID available to JavaScript
-            echo "<script>window.nextID = '$ID';</script>";
-            ?>
             <button type="submit" style="height: 35px; padding: 0 15px; line-height: 35px; text-align: center;">Select</button>
         </div>
     </form>
-</div>  
-  
-<div class="center-content">
-    <!-- 1) Form for selecting the section (letter) -->
+
     <form method="POST" action="../backend/mailstamps.php" style="margin-top: 10px;" id="submitForm">
-        <div style="display: grid; grid-template-columns: auto 1fr;center; gap: 5px; width: 100%; justify-content: space-between;border: 1px solid;">
+        <div style="display: grid; grid-template-columns: auto 1fr; gap: 5px; width: 100%; justify-content: space-between; border: 1px solid;">
             <label for="ID" style="text-align: right; font-weight: bold; width: 150px">ID:</label>
             <div style="flex-grow: 1; display: flex; justify-content: flex-end;">
-                <!-- ID -->
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px">  
-                    <label><?php echo isset($ID) ? htmlspecialchars($ID) : ''; ?></label>
-                </div>
+                <label style="width: 150px; height: 35px; font-size: 16px"><?php echo isset($ID) ? htmlspecialchars($ID) : ''; ?></label>
             </div>
-            <!-- Call -->
-            <label for="Call" style="text-align: right; font-weight: bold;nowrap;">Call:</label>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                <input
-                    type="text"
-                    id="Call"
-                    name="Call"
-                    required
-                    class="form-control"
-                    value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
-                    <?php if ($status != 'Edit') { echo 'disabled'; } ?>
-                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
-                >
-            </div>
-            <!-- Cards To Mail -->
+
+            <label for="Call" style="text-align: right; font-weight: bold; nowrap;">Call:</label>
+            <input type="text" id="Call" name="Call" required class="form-control"
+                   value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
+                   <?php if ($status != 'Edit') { echo 'disabled'; } ?>
+                   style="width: 150px; height: 35px; font-size: 16px">
+
             <label for="CardsToMail" style="text-align: right; font-weight: bold; nowrap;">Cards To Mail:</label>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                <input
-                    type="text"
-                    id="CardsToMail"
-                    name="CardsToMail"
-                    required
-                    class="form-control"
-                    value="<?php echo isset($CardsToMail) ? htmlspecialchars($CardsToMail) : ''; ?>"
-                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
-                >
-            </div>
-            <!-- Weight -->
+            <input type="text" id="CardsToMail" name="CardsToMail" required class="form-control"
+                   value="<?php echo isset($CardsToMail) ? htmlspecialchars($CardsToMail) : ''; ?>"
+                   style="width: 150px; height: 35px; font-size: 16px">
+
             <label style="text-align: right; font-weight: bold;">Weight:</label>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                <input
-                    type="text"
-                    id="weight"
-                    name="weight"
-                    required
-                    class="form-control"
-                    value="<?php echo isset($Weight) ? htmlspecialchars($Weight) : ''; ?>"
-                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
-                >
-            </div>
-            <!-- Postage Cost -->
+            <input type="text" id="weight" name="weight" required class="form-control"
+                   value="<?php echo isset($Weight) ? htmlspecialchars($Weight) : ''; ?>"
+                   style="width: 150px; height: 35px; font-size: 16px">
+
             <label style="text-align: right; font-weight: bold;">Postage Cost:</label>
-            <div style="display: flex; align-items: center; gap: 1px; margin-bottom: 10px;">
-                <input
-                    type="text"
-                    id="PostageCost"
-                    name="PostageCost"
-                    required
-                    class="form-control"
-                    value="<?php echo isset($PostageCost) ? htmlspecialchars($PostageCost) : ''; ?>"
-                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
-                >
-            </div>
-            
-            <!-- Other Cost -->
+            <input type="text" id="PostageCost" name="PostageCost" required class="form-control"
+                   value="<?php echo isset($PostageCost) ? htmlspecialchars($PostageCost) : ''; ?>"
+                   style="width: 150px; height: 35px; font-size: 16px">
+
             <label for="OtherCost" style="text-align: right; font-weight: bold;">Other Cost:</label>
-            <div style="display: flex; align-items: center; gap: 1px; margin-bottom: 10px;">
-            <input
-                type="text"
-                id="OtherCost"
-                name="OtherCost"
-                required
-                class="form-control"
-                value="<?php echo isset($OtherCost) ? htmlspecialchars($OtherCost) : ''; ?>"
-                style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
-                >
-            </div>
-            <!-- Total Cost -->
+            <input type="text" id="OtherCost" name="OtherCost" required class="form-control"
+                   value="<?php echo isset($OtherCost) ? htmlspecialchars($OtherCost) : ''; ?>"
+                   style="width: 150px; height: 35px; font-size: 16px">
+
             <label for="Total Cost" style="text-align: right; font-weight: bold;">Total Cost:</label>
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                <input
-                    type="text"
-                    id="TotalCost"
-                    name="TotalCost"
-                    required
-                    readonly
-                    class="form-control"
-                    value="<?php echo isset($TotalCost) ? htmlspecialchars($TotalCost) : ''; ?>"
-                    style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
-                >
-            </div>
-               
-            <!-- Status (Label) -->
+            <input type="text" id="TotalCost" name="TotalCost" required readonly class="form-control"
+                   value="<?php echo isset($TotalCost) ? htmlspecialchars($TotalCost) : ''; ?>"
+                   style="width: 150px; height: 35px; font-size: 16px">
+
             <label style="text-align: right; font-weight: bold;">Status:</label>
             <label id="Status"><?php echo isset($Status) ? htmlspecialchars($Status) : 'N/A'; ?></label>
 
-            <!-- Mail-Inst (Label) -->
             <label style="text-align: right; font-weight: bold;">Mail:</label>
             <label id="Mail-Inst"><?php echo isset($MailInst) ? htmlspecialchars($MailInst) : 'N/A'; ?></label>
 
-            <!-- Cards On Hand -->
             <label style="text-align: right; font-weight: bold;">Cards On Hand:</label>
             <label id="CardsOnHand"><?php echo isset($CardsOnHand) ? htmlspecialchars($CardsOnHand) : '0'; ?></label>
 
-            <!-- Account Balance (Label) -->
             <label style="text-align: right; font-weight: bold;">Account Balance:</label>
-            <label id="AccountBalance" style="color: 
-            <?php echo isset($AccountBalance) && $AccountBalance > 0.85 ? 'green' : 'red'; ?>">
-            <?php echo isset($AccountBalance) ? htmlspecialchars($AccountBalance) : '0'; ?>
-            </label>    
+            <label id="AccountBalance" style="color: <?php echo isset($AccountBalance) && $AccountBalance > 0.85 ? 'green' : 'red'; ?>">
+                <?php echo isset($AccountBalance) ? htmlspecialchars($AccountBalance) : '0'; ?>
+            </label>
 
-            <!-- Hidden fields -->
             <input type="hidden" name="letter" id="hiddenLetter" value="<?php echo htmlspecialchars($selectedLetter ?? ''); ?>" />
             <input type="hidden" name="ID" value="<?php echo htmlspecialchars($ID ?? ''); ?>" />
             <button type="submit" id="submitCardButton" style="padding: 6px 12px; grid-column: 1 / span 2;" disabled>Submit to Add Card</button>
+
         </div>
     </form>
-</div> 
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
