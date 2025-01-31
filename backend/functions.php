@@ -652,4 +652,18 @@ function fetchMoneyReceived(PDO $pdo, string $callSign): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function getPDOConnectionLogin(array $dbInfo) {
+    try {
+        $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
+        $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $pdo; // Return the PDO object on success
+    } catch (PDOException $e) {
+        // Instead of die(), throw the exception so the calling code can handle it
+        throw new PDOException("Database connection failed: " . $e->getMessage(), 0, $e);
+    }
+}
+
+
+
 ?>

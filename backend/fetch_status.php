@@ -19,7 +19,7 @@ limitations under the License.
 
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $config = include($root . '/config.php');
-include 
+include('functions.php');
 
 // We'll return HTML <option> tags
 header('Content-Type: text/html; charset=utf-8');

@@ -45,6 +45,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
         $ID = getNextID($pdo);
     }
 }
+
+#############
+$configdb = include("../config.php");
+include_once("../backend/allow.php");
+$call = strtoupper(htmlspecialchars($_SESSION['username']?? ''));
+$status = getStatusByCallAndLetter($call, $selectedLetter, $configdb);
+###########
 ?>
 <div class="center-content">
     <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Mailed</h1>
@@ -97,6 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
                     required
                     class="form-control"
                     value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
+                    <?php if ($status != 'Edit') { echo 'disabled'; } ?>
                     style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; width: 150px; height: 35px; font-size: 16px"
                 >
             </div>
@@ -197,7 +205,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Get all input elements
     const callInput = document.getElementById('Call');
     const letterSelect = document.getElementById('letter');
     const letterForm = document.querySelector('form');
@@ -213,29 +220,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const cardsOnHandLabel = document.getElementById('CardsOnHand');
     const submitForm = document.querySelector('form:not([name="letter_select_form"])');
     const missingDataText = 'No data available';
+
     
-    // Initially disable call input
-    callInput.disabled = true;
-    
-    // Initially disable all inputs
-    callInput.disabled = true;
     cardsToMailInput.disabled = true;
     weightInput.disabled = true;
     postageCostInput.disabled = true;
     otherCostInput.disabled = true;
     totalCostInput.disabled = true;
 
-    // Handle the letter selection form submission
     letterForm.addEventListener('submit', function(event) {
-        // Only handle the letter select form
         if (!event.target.querySelector('input[name="letter_select_form"]')) {
             return;
         }
-        
-        // Don't disable the call input after submitting the letter selection
+
         event.preventDefault();
-        
-        // Submit the form using fetch or similar to avoid page reload
+
         const formData = new FormData(event.target);
         fetch(event.target.action, {
             method: 'POST',
@@ -243,22 +242,19 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.text())
         .then(() => {
-            // Enable the call input after letter is selected
             callInput.disabled = false;
+            updateStatusLabel();
+            updateMailInstLabel();
+            updateAccountBalanceLabel();
+            updateCardsOnHandLabel();
         });
     });
 
-    // Enable call input if ID exists on page load
-    if (window.nextID) {
-        callInput.disabled = false;
-    }
 
-    // Enable/disable fields based on Call input
     callInput.addEventListener('input', function() {
         const hasValue = this.value.trim() !== '';
         cardsToMailInput.disabled = !hasValue;
-        
-        // If Call is empty, disable all subsequent fields
+
         if (!hasValue) {
             cardsToMailInput.value = '';
             weightInput.value = '';
@@ -271,28 +267,24 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Enable/disable fields based on Cards to Mail input
     cardsToMailInput.addEventListener('input', function() {
         const hasValue = this.value.trim() !== '';
         weightInput.disabled = !hasValue;
-        
-        // If Cards to Mail is empty, disable and clear subsequent fields
+
         if (!hasValue) {
             weightInput.value = '';
             postageCostInput.value = '';
             totalCostInput.value = '';
-            otherCostInpu
+            otherCostInput.disabled = true;
             postageCostInput.disabled = true;
             totalCostInput.disabled = true;
         }
     });
 
-    // Enable/disable fields based on Weight input
     weightInput.addEventListener('input', function() {
         const hasValue = this.value.trim() !== '';
         postageCostInput.disabled = !hasValue;
-        
-        // If Weight is empty, disable and clear subsequent fields
+
         if (!hasValue) {
             postageCostInput.value = '';
             totalCostInput.value = '';
@@ -300,19 +292,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Enable/disable fields based on Postage Cost input
     postageCostInput.addEventListener('input', function() {
         const hasValue = this.value.trim() !== '';
         otherCostInput.disabled = !hasValue;
-        
-        // If Postage Cost is empty, clear total
+
         if (!hasValue) {
             otherCostInput.value = '';
         }
         calculateTotal();
     });
 
-    // Calculate Total Cost
     function calculateTotal() {
         const postageCost = parseFloat(postageCostInput.value) || 0;
         const otherCost = parseFloat(otherCostInput.value) || 0;
@@ -321,12 +310,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     postageCostInput.addEventListener('input', calculateTotal);
     otherCostInput.addEventListener('input', calculateTotal);
-    // Enable/disable fields based on Postage Cost input
+
     postageCostInput.addEventListener('input', function() {
         const hasValue = this.value.trim() !== '';
         otherCostInput.disabled = !hasValue;
         totalCostInput.disabled = !hasValue;
-        
+
         if (!hasValue) {
             otherCostInput.value = '';
             totalCostInput.value = '';
@@ -334,7 +323,6 @@ document.addEventListener('DOMContentLoaded', function() {
         calculateTotal();
     });
 
-    // Validate numeric input
     function validateNumericInput(event) {
         const value = event.target.value;
         if (!/^\d*\.?\d*$/.test(value)) {
@@ -345,24 +333,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Apply numeric validation
     cardsToMailInput.addEventListener('input', validateNumericInput);
     weightInput.addEventListener('input', validateNumericInput);
     postageCostInput.addEventListener('input', validateNumericInput);
 
-    // Normalize status text for comparison
     function normalizeStatus(status) {
         return status.trim().replace(/\.$/, "");
     }
 
-    // Toggle the Submit Button
     function toggleSubmitButton() {
         const invalidStatuses = ["No status found", "Enter a call sign", "N/A", missingDataText];
         const status = normalizeStatus(statusLabel.textContent);
         submitCardButton.disabled = invalidStatuses.includes(status);
     }
 
-    // Update label with standardized message
     function updateLabel(label, url, params) {
         fetch(url, {
             method: 'POST',
@@ -388,7 +372,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Update Status Label
     function updateStatusLabel() {
         const call = callInput.value.trim();
         const letter = letterSelect.value;
@@ -402,7 +385,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateLabel(statusLabel, '../backend/fetch_status.php', { letter, call });
     }
 
-    // Update Mail-Inst Label
     function updateMailInstLabel() {
         const call = callInput.value.trim();
         const letter = letterSelect.value;
@@ -415,7 +397,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateLabel(mailInstLabel, '../backend/fetch_mail_inst.php', { letter, call });
     }
 
-    // Update Account Balance Label
     function updateAccountBalanceLabel() {
         const call = callInput.value.trim();
         const letter = letterSelect.value;
@@ -428,7 +409,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateLabel(accountBalanceLabel, '../backend/fetch_account_balance.php', { letter, call });
     }
 
-    // Update Cards On Hand Label
     function updateCardsOnHandLabel() {
         const call = callInput.value.trim();
         const letter = letterSelect.value;
@@ -441,7 +421,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateLabel(cardsOnHandLabel, '../backend/fetch_cards_on_hand.php', { letter, call });
     }
 
-    // Attach blur event listener to Call input
     callInput.addEventListener('blur', function() {
         updateStatusLabel();
         updateMailInstLabel();
@@ -449,12 +428,11 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCardsOnHandLabel();
     });
 
-    // Handle popup window for postage cost
     postageCostInput.addEventListener('click', function() {
         const letter = letterSelect.value;
         const weight = weightInput.value;
         if (weight) {
-            openPopupWindow(letter, weight);
+           // openPopupWindow(letter, weight);  // Make sure this function is defined if you're using it.
         }
     });
 

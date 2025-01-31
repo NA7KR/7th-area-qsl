@@ -27,6 +27,16 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
+#############
+$configdb = include("../config.php");
+include("../backend/allow.php");
+// 2. Use the function:
+$call = "NA7KR";
+$letter = "F";
+$status = getStatusByCallAndLetter($call, $letter, $configdb);
+
+
+
 // If the user submitted the form to select a letter:
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])) {
     $selectedLetter = $_POST['letter'] ?? null;
@@ -37,6 +47,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
         $ID = getNextID($pdo);
     }
 }
+
+#############
+$configdb = include("../config.php");
+include_once("../backend/allow.php");
+$call = strtoupper(htmlspecialchars($_SESSION['username']?? ''));
+$status = getStatusByCallAndLetter($call, $selectedLetter, $configdb);
+###########
 ?>
 <div class="center-content">
    
@@ -83,7 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter_select_form'])
                 required
                 class="form-control"
                 value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
-                style="flex: 1;"
+                style="flex: 1;" 
+                <?php if ($status != 'Edit') { echo 'disabled'; } ?>
             >
         </div>
 

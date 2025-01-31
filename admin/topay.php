@@ -68,15 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
     // Get this section's MySQL credentials from config
     if (isset($config['sections'][$selectedLetter])) {
         $dbInfo = $config['sections'][$selectedLetter];
-
-        // Build PDO
-        try {
-            $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
-            $pdo = new PDO($dsn, $dbInfo['username'], $dbInfo['password']);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (PDOException $e) {
-            die("Connection failed: " . $e->getMessage());
-        }
+        $pdo = getPDOConnection($dbInfo);
+      
 
         // Fetch data from the 4 MySQL tables using our new function
         //$rawCardData     = fetchData($pdo, 'tbl_CardRec',true );
