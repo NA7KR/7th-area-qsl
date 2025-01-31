@@ -78,65 +78,121 @@ $status = getStatusByCallAndLetter($call, $selectedLetter, $configdb);
         </div>
     </form>
 
-    <form method="POST" action="../backend/mailstamps.php" style="margin-top: 10px;" id="submitForm">
-        <div style="display: grid; grid-template-columns: auto 1fr; gap: 5px; width: 100%; justify-content: space-between; border: 1px solid;">
-            <label for="ID" style="text-align: right; font-weight: bold; width: 150px">ID:</label>
-            <div style="flex-grow: 1; display: flex; justify-content: flex-end;">
-                <label style="width: 150px; height: 35px; font-size: 16px"><?php echo isset($ID) ? htmlspecialchars($ID) : ''; ?></label>
-            </div>
+    <div class="center-content">
+    <h1 class="my-4 text-center">7th Area QSL Bureau - Cards Mailed</h1>
 
-            <label for="Call" style="text-align: right; font-weight: bold; nowrap;">Call:</label>
-            <input type="text" id="Call" name="Call" required class="form-control"
-                   value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
-                   <?php if ($status != 'Edit') { echo 'disabled'; } ?>
-                   style="width: 150px; height: 35px; font-size: 16px">
+    <div style="display: flex; width: 100%; gap: 20px;">
 
-            <label for="CardsToMail" style="text-align: right; font-weight: bold; nowrap;">Cards To Mail:</label>
-            <input type="text" id="CardsToMail" name="CardsToMail" required class="form-control"
-                   value="<?php echo isset($CardsToMail) ? htmlspecialchars($CardsToMail) : ''; ?>"
-                   style="width: 150px; height: 35px; font-size: 16px">
+        <div style="flex: 1;">
+            <?php
+         if (array_key_exists($selectedLetter, $config['sections'])) {
 
-            <label style="text-align: right; font-weight: bold;">Weight:</label>
-            <input type="text" id="weight" name="weight" required class="form-control"
-                   value="<?php echo isset($Weight) ? htmlspecialchars($Weight) : ''; ?>"
-                   style="width: 150px; height: 35px; font-size: 16px">
+        $dbInfo = $config['sections'][$selectedLetter];
+        $pdo = getPDOConnection($dbInfo);
 
-            <label style="text-align: right; font-weight: bold;">Postage Cost:</label>
-            <input type="text" id="PostageCost" name="PostageCost" required class="form-control"
-                   value="<?php echo isset($PostageCost) ? htmlspecialchars($PostageCost) : ''; ?>"
-                   style="width: 150px; height: 35px; font-size: 16px">
+        $dataRows = fetchAllStamps($pdo, 'tbl_Stamps');
 
-            <label for="OtherCost" style="text-align: right; font-weight: bold;">Other Cost:</label>
-            <input type="text" id="OtherCost" name="OtherCost" required class="form-control"
-                   value="<?php echo isset($OtherCost) ? htmlspecialchars($OtherCost) : ''; ?>"
-                   style="width: 150px; height: 35px; font-size: 16px">
+        $aggregatedStamps = parseAndAggregate($dataRows, $config);
+         
+        usort($aggregatedStamps, function ($a, $b) {
+            return strcasecmp($a['Value'], $b['Value']);
+        
+        });
+    }
+        ?>
+            <form method="POST" action="../backend/mailstamps.php" style="margin-top: 10px;" id="submitForm">
+                <div style="display: grid; grid-template-columns: auto 1fr; gap: 5px; width: 100%; border: 1px solid; padding: 10px;">  <label for="ID" style="text-align: right; font-weight: bold; width: 150px">ID:</label>
+                    <label style="width: 150px; height: 35px; font-size: 16px"><?php echo isset($ID) ? htmlspecialchars($ID) : ''; ?></label>
 
-            <label for="Total Cost" style="text-align: right; font-weight: bold;">Total Cost:</label>
-            <input type="text" id="TotalCost" name="TotalCost" required readonly class="form-control"
-                   value="<?php echo isset($TotalCost) ? htmlspecialchars($TotalCost) : ''; ?>"
-                   style="width: 150px; height: 35px; font-size: 16px">
+                    <label for="Call" style="text-align: right; font-weight: bold; nowrap;">Call:</label>
+                    <input type="text" id="Call" name="Call" required class="form-control"
+                           value="<?php echo isset($Call) ? htmlspecialchars($Call) : ''; ?>"
+                           <?php if ($status != 'Edit') { echo 'disabled'; } ?>
+                           style="width: 150px; height: 35px; font-size: 16px">
 
-            <label style="text-align: right; font-weight: bold;">Status:</label>
-            <label id="Status"><?php echo isset($Status) ? htmlspecialchars($Status) : 'N/A'; ?></label>
+                    <label for="CardsToMail" style="text-align: right; font-weight: bold; nowrap;">Cards To Mail:</label>
+                    <input type="text" id="CardsToMail" name="CardsToMail" required class="form-control"
+                           value="<?php echo isset($CardsToMail) ? htmlspecialchars($CardsToMail) : ''; ?>"
+                           style="width: 150px; height: 35px; font-size: 16px">
 
-            <label style="text-align: right; font-weight: bold;">Mail:</label>
-            <label id="Mail-Inst"><?php echo isset($MailInst) ? htmlspecialchars($MailInst) : 'N/A'; ?></label>
+                    <label style="text-align: right; font-weight: bold;">Weight:</label>
+                    <input type="text" id="weight" name="weight" required class="form-control"
+                           value="<?php echo isset($Weight) ? htmlspecialchars($Weight) : ''; ?>"
+                           style="width: 150px; height: 35px; font-size: 16px">
 
-            <label style="text-align: right; font-weight: bold;">Cards On Hand:</label>
-            <label id="CardsOnHand"><?php echo isset($CardsOnHand) ? htmlspecialchars($CardsOnHand) : '0'; ?></label>
+                    <label style="text-align: right; font-weight: bold;">Postage Cost:</label>
+                    <input type="text" id="PostageCost" name="PostageCost" required class="form-control"
+                           value="<?php echo isset($PostageCost) ? htmlspecialchars($PostageCost) : ''; ?>"
+                           style="width: 150px; height: 35px; font-size: 16px">
 
-            <label style="text-align: right; font-weight: bold;">Account Balance:</label>
-            <label id="AccountBalance" style="color: <?php echo isset($AccountBalance) && $AccountBalance > 0.85 ? 'green' : 'red'; ?>">
-                <?php echo isset($AccountBalance) ? htmlspecialchars($AccountBalance) : '0'; ?>
-            </label>
+                    <label for="OtherCost" style="text-align: right; font-weight: bold;">Other Cost:</label>
+                    <input type="text" id="OtherCost" name="OtherCost" required class="form-control"
+                           value="<?php echo isset($OtherCost) ? htmlspecialchars($OtherCost) : ''; ?>"
+                           style="width: 150px; height: 35px; font-size: 16px">
 
-            <input type="hidden" name="letter" id="hiddenLetter" value="<?php echo htmlspecialchars($selectedLetter ?? ''); ?>" />
-            <input type="hidden" name="ID" value="<?php echo htmlspecialchars($ID ?? ''); ?>" />
-            <button type="submit" id="submitCardButton" style="padding: 6px 12px; grid-column: 1 / span 2;" disabled>Submit to Add Card</button>
+                    <label for="Total Cost" style="text-align: right; font-weight: bold;">Total Cost:</label>
+                    <input type="text" id="TotalCost" name="TotalCost" required readonly class="form-control"
+                           value="<?php echo isset($TotalCost) ? htmlspecialchars($TotalCost) : ''; ?>"
+                           style="width: 150px; height: 35px; font-size: 16px">
 
+                    <label style="text-align: right; font-weight: bold;">Status:</label>
+                    <label id="Status"><?php echo isset($Status) ? htmlspecialchars($Status) : 'N/A'; ?></label>
+
+                    <label style="text-align: right; font-weight: bold;">Mail:</label>
+                    <label id="Mail-Inst"><?php echo isset($MailInst) ? htmlspecialchars($MailInst) : 'N/A'; ?></label>
+
+                    <label style="text-align: right; font-weight: bold;">Cards On Hand:</label>
+                    <label id="CardsOnHand"><?php echo isset($CardsOnHand) ? htmlspecialchars($CardsOnHand) : '0'; ?></label>
+
+                    <label style="text-align: right; font-weight: bold;">Account Balance:</label>
+                    <label id="AccountBalance" style="color: <?php echo isset($AccountBalance) && $AccountBalance > 0.85 ? 'green' : 'red'; ?>">
+                        <?php echo isset($AccountBalance) ? htmlspecialchars($AccountBalance) : '0'; ?>
+                    </label>
+
+                    <input type="hidden" name="letter" id="hiddenLetter" value="<?php echo htmlspecialchars($selectedLetter ?? ''); ?>" />
+                    <input type="hidden" name="ID" value="<?php echo htmlspecialchars($ID ?? ''); ?>" />
+                    <button type="submit" id="submitCardButton" style="padding: 6px 12px; grid-column: 1 / span 2;" disabled>Submit to Add Card</button>
+                </div>
+            </form>
         </div>
-    </form>
+
+        <div style="flex: 1; border: 1px solid; padding: 10px;">
+         
+               
+    <h2>Stamp Summary</h2>
+ 
+    
+    <?php if (!empty($aggregatedStamps)): ?>
+        <table>
+            <thead>
+                <tr>
+                    <th>Value Of Stamps</th>
+                    <th class="stamps-on-hand">Stamps On Hand</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php 
+                $totalOnHand = 0;
+
+                foreach ($aggregatedStamps as $row): 
+                    $totalOnHand += $row['Stamps On Hand'];
+                ?>
+                    <tr>
+                        <td><?= htmlspecialchars($row['Value'] ?? '') ?></td>
+                        <td class="stamps-on-hand"><?= (int)$row['Stamps On Hand'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php elseif ($selectedLetter !== null): ?>
+        <p>No data found or there was an error retrieving the data.</p>
+    <?php endif; ?>
+            </ul>
+        </div>
+
+    </div>
 </div>
+
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
