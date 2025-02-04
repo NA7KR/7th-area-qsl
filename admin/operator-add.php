@@ -26,6 +26,10 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
+$isLoggedIn = isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true;
+$role = $_SESSION['role'] ?? 'Admin';
+
+
 ini_set('error_reporting', E_ALL);
 ini_set('display_errors', '1');
 ?>
@@ -55,6 +59,11 @@ ini_set('display_errors', '1');
         <div><label for="phone">Phone</label><input type="tel" id="phone" name="phone"></div>
         <div><label for="born">Born</label><input type="text" id="born" name="born"></div>
         <div class="full-width">
+            <input type="checkbox" id="customAddress" name="customAddress">
+            <label for="customAddress">Custom Address</label>
+        </div>
+        <?php //echo "role = $role "; ?>
+        <div class="full-width">
             <input type="submit" value="Submit" id="submitButton" disabled>
         </div>
         <div class="full-width">
@@ -63,6 +72,7 @@ ini_set('display_errors', '1');
         <div class="full-width">
             <button type="button" id="clearButton">Clear</button>
         </div>
+        
     </form>
 
     <?php
@@ -84,6 +94,7 @@ ini_set('display_errors', '1');
         $email = htmlspecialchars($_POST['email']);
         $phone = htmlspecialchars($_POST['phone']);
         $born = htmlspecialchars($_POST['born']);
+        $custom = htmlspecialchars($_POST['customAddress']); 
 
         echo "<div class='result'>";
         echo "<h3>Submitted Data:</h3>";
@@ -104,6 +115,7 @@ ini_set('display_errors', '1');
         echo "Email: $email<br>";
         echo "Phone: $phone<br>";
         echo "Born: $born<br>";
+        echo "Custom Attress: $custom<br>";
         echo "</div>";
     }
     ?>
@@ -115,18 +127,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const fetchButton = document.getElementById('fetchButton');
     const clearButton = document.getElementById('clearButton');
     const dataForm = document.getElementById('dataForm');
-
-    fetchButton.addEventListener('click', function () {
-        fetchQRZData();
-    });
-
-    clearButton.addEventListener('click', function () {
-        dataForm.reset();
-        submitButton.disabled = true;
-        submitButton.classList.add('disabled-button');
-        fetchButton.disabled = false;
-        fetchButton.classList.remove('disabled-button');
-    });
+    const customAddressCheckbox = document.getElementById('customAddress');
 
     function fetchQRZData() {
         const callsign = document.getElementById('callsign').value;
@@ -134,9 +135,6 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Please enter a callsign to fetch data from QRZ.');
             return;
         }
-
-        fetchButton.disabled = true;  // Disable fetch button after clicking
-        fetchButton.classList.add('disabled-button');
 
         const apikey = <?php echo json_encode($config['qrz_api']['key']); ?>;
         const apicall = <?php echo json_encode($config['qrz_api']['callsign']); ?>;
@@ -151,14 +149,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     fetchCallsignData(sessionKey, callsign);
                 } else {
                     console.error('Failed to retrieve session key.');
-                    fetchButton.disabled = false;  // Re-enable fetch button on error
-                    fetchButton.classList.remove('disabled-button');
                 }
             })
             .catch(error => {
                 console.error('Error fetching initial data:', error);
-                fetchButton.disabled = false;  // Re-enable fetch button on error
-                fetchButton.classList.remove('disabled-button');
             });
 
         function extractSessionKey(xml) {
@@ -182,14 +176,11 @@ document.addEventListener('DOMContentLoaded', function () {
             fetch(url)
                 .then(response => response.text())
                 .then(data => {
+                    console.log("QRZ Data:", data);
                     parseXML(data);
-                    submitButton.disabled = false;
-                    submitButton.classList.remove('disabled-button');
                 })
                 .catch(error => {
-                    console.error('Error fetching data:', error);
-                    fetchButton.disabled = false;  // Re-enable fetch button on error
-                    fetchButton.classList.remove('disabled-button');
+                    console.error('Error fetching callsign data:', error);
                 });
         }
 
@@ -200,8 +191,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const error = xmlDoc.getElementsByTagName("Error")[0];
             if (error) {
                 alert(`Error: ${error.textContent}`);
-                fetchButton.disabled = false;  // Re-enable fetch button on error
-                fetchButton.classList.remove('disabled-button');
                 return;
             }
 
@@ -282,8 +271,34 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
     }
+
+    function updateButtonStates() {
+        if (customAddressCheckbox.checked) {
+            submitButton.disabled = false;
+            submitButton.classList.remove('disabled-button');
+            fetchButton.disabled = true;
+            fetchButton.classList.add('disabled-button');
+        } else {
+            submitButton.disabled = true;
+            submitButton.classList.add('disabled-button');
+            fetchButton.disabled = false;
+            fetchButton.classList.remove('disabled-button');
+        }
+    }
+
+    customAddressCheckbox.addEventListener('change', updateButtonStates);
+    fetchButton.addEventListener('click', fetchQRZData);
+    clearButton.addEventListener('click', function () {
+        dataForm.reset();
+        customAddressCheckbox.checked = false;
+        updateButtonStates();
+    });
+
+    updateButtonStates();
+
 });
 </script>
+
 
 <?php
 $footerPath = "$root/backend/footer.php";

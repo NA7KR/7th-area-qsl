@@ -32,7 +32,8 @@ $footertext = "NA7KR";
 <?php
 // Include java.php
 include($root . '/backend/java.php');
-?>
 
+?>
+</script> <script src="https://7th-area-qsl.na7kr.us/backend/bootstrap.bundle.min.js"></script>
 </body>
 </html>

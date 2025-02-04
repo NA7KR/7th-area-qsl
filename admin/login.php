@@ -14,6 +14,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
  */
+//print_r($_POST);
 
 session_set_cookie_params([
     'lifetime' => 86400,
@@ -29,20 +30,14 @@ session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Login Page";
 include("$root/backend/header.php");
-
 $config = include("$root/config.php");
-
-/**
- * Create a PDO connection.  (Your existing function with hardcoded dbname)
- */
-
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['username'];
     $password = $_POST['password'];
-
+//echo $username;
     try {
         $pdo = getPDOConnectionLogin($config['db']); 
 
@@ -55,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['loggedin'] = true;
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
-            header('Location: index.php');
+            header('Location: paid.php');
             exit;
         } else {
             $error = 'Invalid username or password.';
@@ -77,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php if ($error):?>
                 <div class="error-message"><?php echo htmlspecialchars($error);?></div>
             <?php endif;?>
-            <form action="login.php" method="post">
+            <form action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" method="post">
                 <label for="username">Username:</label>
                 <input type="text" id="username" name="username" required>
                 <label for="password">Password:</label>
