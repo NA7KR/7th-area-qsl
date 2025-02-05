@@ -86,7 +86,7 @@ ini_set('display_errors', '1');
 
 <div style="display: flex; align-items: center;">
     <label for="suffix" style="margin-right: 10px; white-space: nowrap;">Suffix:</label>
-    <input type="text" id="suffix" name="suffix" required>
+    <input type="text" id="suffix" name="suffix" >
 </div>
 
 <div style="display: flex; align-items: center;">
@@ -169,11 +169,23 @@ ini_set('display_errors', '1');
     <input type="text" id="born" name="born">
 </div>
 
-<div class="full-width" style="display: flex; align-items: center;">
-    
+<?php if ($role == 'Admin'): ?>
+    <div class="full-width" style="display: flex; align-items: center;"> 
+    <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Status</label>
+    <select name="customAddress" id="customAddress">
+  <option value="Active">Active</option>
+  <option value="Custom Address">Custom Address</option>
+  <option value="New">New</option>
+  <option value="Via">Via</option>
+</select>
+</div>
+
+<?php else: ?>
+<div class="full-width" style="display: flex; align-items: center;"> 
     <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Custom Address</label>
     <input type="checkbox" id="customAddress" name="customAddress">
 </div>
+<?php endif; ?>
 
 <?php if ($role == 'Admin'): ?>
     <div style="display: flex; align-items: center;">
@@ -213,7 +225,7 @@ ini_set('display_errors', '1');
         $first_name = htmlspecialchars($_POST['first_name']);
         $last_name = htmlspecialchars($_POST['last_name']);
         $class = htmlspecialchars($_POST['class']);
-        $date_start = htmlspecialchars($_POST['date_start']);
+        $lic_issued = htmlspecialchars($_POST['date_start']);
         $lic_exp  = htmlspecialchars($_POST['date_exp']);
         $new_call = htmlspecialchars($_POST['new_call']);
         $old_call = htmlspecialchars($_POST['old_call']);
@@ -245,7 +257,6 @@ ini_set('display_errors', '1');
         $suffix  = htmlspecialchars($_POST['suffix'] ?? null);
         $alt_phone  = null;
         $updated = Date("Y-m-d");
-        $lic_issued = null;
         $mail_inst  = null;
         $remarks = null;
         $attachments = null;
@@ -255,16 +266,14 @@ ini_set('display_errors', '1');
         $year_of_birth = null;
 
 
-
-
-
         echo "<div class='result'>";
         echo "<h3>Submitted Data:</h3>";
         echo "Callsign: $callsign<br>";
+        echo "Suffix: $suffix<br>";
         echo "First Name: $first_name<br>";
         echo "Last Name: $last_name<br>";
         echo "Class: $class<br>";
-        echo "Start Date: $date_start<br>";
+        echo "Start Date: $lic_issued<br>";
         echo "Expiration Date: $lic_exp <br>";
         echo "New Call: $new_call<br>";
         echo "Old Call: $old_call<br>";
