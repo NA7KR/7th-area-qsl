@@ -664,6 +664,27 @@ function getPDOConnectionLogin(array $dbInfo) {
     }
 }
 
+function insertData($conn, $callsign, $first_name, $last_name, $class, $date_start, $date_exp, $new_call, $old_call, $address, $address2, $city, $state, $zip, $country, $email, $phone, $born, $custom, $role) {
+
+    $stmt = $conn->prepare("INSERT INTO tbl_Operator (Call_Index, FirstName, LastName, Class, Lic_issued, Lic_exp, NewCall, Old_call, Address_1, Address_2, City, State, Zip, Country, E_Mail, Phone, DOB, Custom_Field, Role) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"); // Added Country, Custom_Field, Role
+
+    if (!$stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
+
+    $stmt->bind_param("sssssssssssssssssssss", $callsign, $first_name, $last_name, $class, $date_start, $date_exp, $new_call, $old_call, $address, $address2, $city, $state, $zip, $country, $email, $phone, $born, $custom, $role); // Added parameters for Country, Custom_Field, and Role
+
+    if ($stmt->execute()) {
+        echo "New record created successfully";
+    } else {
+        echo "Error: " . $stmt->error;
+    }
+
+    $stmt->close();
+}
+
+
 
 
 ?>

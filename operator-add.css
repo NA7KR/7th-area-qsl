@@ -1,0 +1,253 @@
+/* styles.css (or global.css) */
+
+/* Menu container */
+.menu {
+    display: flex;
+    flex-direction: column;
+    background-color: #333;
+    padding: 10px;
+    position: relative;
+}
+
+/* Menu links (styles the same on all screens) */
+.menu a, .dropdown > a {
+    color: white;
+    padding: 14px 20px;
+    text-decoration: none;
+    text-align: center;
+}
+
+/* Hamburger icon */
+.menu-toggle {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    cursor: pointer;
+    display: none; /* Initially hide the hamburger menu */
+}
+
+.menu-toggle .bar {
+    width: 25px;
+    height: 3px;
+    background-color: white;
+    margin: 4px 0;
+    transition: 0.4s;
+}
+
+/* Dropdown styles */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #333;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+    top: 100%;
+    left: 0;
+}
+
+.dropdown-content a {
+    color: white;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    text-align: left;
+}
+
+.dropdown-content a:hover {
+    background-color: #575757;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+}
+
+/* Menu links container (Horizontal by default) */
+.menu-links {
+    display: flex;
+    flex-direction: row; /* Horizontal by default */
+    align-items: center;
+}
+
+.menu-links.active { /* Styles for mobile menu (vertical) */
+    flex-direction: column; /* Vertical on mobile */
+    display: flex; /* Ensure it's visible when active */
+}
+
+/* Media query for smaller screens (behavior changes only) */
+@media (max-width: 600px) {
+    .menu {
+        flex-direction: column; /* Vertical menu on mobile */
+    }
+
+    .menu-toggle {
+        display: flex; /* Show hamburger icon on mobile */
+    }
+
+    .menu-links {
+        display: none; /* Initially hide links on mobile */
+    }
+
+    .menu-links.active {
+        display: flex; /* Show links when menu is active */
+    }
+
+    .dropdown-content {
+        position: relative; /* Adjust dropdown position if needed */
+    }
+}
+
+/* Media query for larger screens (behavior changes only) */
+@media (min-width: 601px) {
+    .menu-toggle {
+        display: none; /* Hide hamburger icon on larger screens */
+    }
+}
+
+
+/* General form styles (forms.css) - Put these in forms.css */
+.container {
+    width: 50%; /* Or whatever width you want */
+    margin: 50px auto;
+    padding: 20px;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    text-align: center;
+}
+
+form {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+form > div {
+    flex: 0 0 48%; /* Adjust as needed */
+    margin-bottom: 10px;
+    display: flex; /* Align label and input */
+    align-items: center;
+}
+
+form > div.full-width {
+    flex: 0 0 100%;
+}
+
+label {
+    display: inline-block; /* So it's on the same line as input */
+    margin-right: 10px; /* Spacing between label and input */
+    min-width: 120px; /* Or your desired width */
+    white-space: nowrap; /* Prevent label from wrapping */
+}
+
+input[type="text"], input[type="date"], input[type="email"], input[type="tel"], select {
+    width: calc(100% - 130px); /* Adjust as needed (label width + margin) */
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+input[type="submit"], button {
+    width: 100%;
+    padding: 10px;
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+input[type="submit"]:disabled, button:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+}
+
+input[type="submit"]:hover:enabled, button:hover:enabled {
+    background-color: #218838;
+}
+
+.result {
+    margin-top: 20px;
+    background: #e9ecef;
+    padding: 10px;
+}
+
+.error {
+    color: red;
+}
+
+
+/* Operator Add Page Styles (operator-add.css) */
+#operator-add-container { /* If you need specific container styles */ }
+
+/* These rules are now redundant since they are handled by the general form styles */
+/* #operator-add-container .label-container { ... } */
+/* #operator-add-container .label { ... } */
+/* #operator-add-container .full-width-input { ... } */
+
+/* If you have any *truly* unique styles for this page, put them here. */
+
+/* Centered content styling */
+.center-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #f8f9fa;
+    text-align: auto;
+    padding: 20px;
+}
+
+.container {
+    width: 50%;
+    margin: 50px auto;
+    padding: 20px;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-wrapper {
+    border: 1px solid #ccc; /* Border around the wrapper */
+    padding: 20px;
+}
+
+form {
+    border: 3px solid #ccc; /* Thicker border */
+    padding: 20px;
+}
+
+form > div {
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+}
+
+form label {
+    margin-right: 10px;
+}
+
+form input, form select {
+    /* ... other styles ... */
+}
+
+button, input[type="submit"] {  /* Target all your buttons */
+    width: 150px; /* Fixed width */
+    height: 40px; /* Fixed height */
+    padding: 10px; /* Add padding to center text */
+    box-sizing: border-box; /* Include padding in width/height */
+    /* ... other button styles ... */
+}

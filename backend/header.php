@@ -42,7 +42,21 @@ $currentSubmenu = $submenus[$role] ?? $submenus['Admin'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $title; ?></title> <link rel="stylesheet" href="/styles.css"> <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title><?php echo $title; ?></title> 
+    
+    <link href="/backend/bootstrap.min.css" rel="stylesheet">
+    <?php
+        $current_page = basename($_SERVER['PHP_SELF']);
+        //echo $current_page;
+
+        if ($current_page == 'operator-add.php') {
+            echo '<link rel="stylesheet" href="/operator-add.css">';
+        }
+        else 
+        {
+            echo '<link rel="stylesheet" href="/styles.css">';
+        }
+    ?>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
 </head>
