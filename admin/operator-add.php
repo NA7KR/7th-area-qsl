@@ -49,33 +49,10 @@ ini_set('display_errors', '1');
 <img src="/7thArea.png" alt="7th Area" />
 
 </div>
-<div class="container">
-    <h1 class="center-content">Add New User</h1>
-    <div class="form-wrapper">
 
-    <form method="POST" action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>">
-        <div style="display: flex; align-items: center; gap: 10px; width: 100%; justify-content: space-between;">
-            <input type="hidden" name="letter_select_form" value="1">
-            <label for="letter" style="white-space: nowrap;">Select a Section:</label>
-            <div style="flex-grow: 1; display: flex; justify-content: flex-end;">
-                <select name="letter" id="letter" class="form-control" style="width: 150px; height: 35px; font-size: 16px; appearance: auto;">
-                    <?php if (isset($config['sections']) && is_array($config['sections'])): ?>
-                        <?php foreach ($config['sections'] as $letter => $dbInfo): ?>
-                            <option value="<?= htmlspecialchars($letter) ?>"
-                                    <?= $selectedLetter === $letter ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($letter) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <option value="">No sections available</option>
-                    <?php endif; ?>
-                </select>
-            </div>
-           <button type="submit" style="height: 35px; padding: 0 15px; line-height: 35px; text-align: center;">Select</button>
-        </div>
-    </form>
-                    </div>
-    <div id="operator-add-container">
+  
+<div id="operator-add-container">
+<h1 class="center-content">Add New User</h1>
     <div class="form-wrapper">
     <form method="post" id="dataForm">
 
@@ -220,7 +197,7 @@ ini_set('display_errors', '1');
 
 
     <?php
-    if ($_SERVER["REQUEST_METHOD"] == "POST" && (!isset($_POST['letter_select_form']) || $_POST['letter_select_form'] != 1)) {
+    if ($_SERVER["REQUEST_METHOD"] == "POST" && (!isset($_POST['letter_select_form'])) ) {
         $callsign = htmlspecialchars($_POST['callsign']);
         $first_name = htmlspecialchars($_POST['first_name']);
         $last_name = htmlspecialchars($_POST['last_name']);
@@ -252,7 +229,7 @@ ini_set('display_errors', '1');
         $dob = $datetime;
         $custom = htmlspecialchars($_POST['customAddress'] ?? 'Off'); 
         $role = htmlspecialchars($_POST['role'] ?? 'User');
-        $selected_letter = htmlspecialchars($_POST['selected_letter'] ?? ' ');
+        
         $pc_em_date = null;
         $suffix  = htmlspecialchars($_POST['suffix'] ?? null);
         $alt_phone  = null;
@@ -285,273 +262,119 @@ ini_set('display_errors', '1');
         echo "Country: $country<br>";
         echo "Email: $email<br>";
         echo "Phone: $phone<br>";
-        echo "Born: " . date("Y", strtotime($dob)) . "<br>";
+        echo "Born: " ;
+        if ($dob !== null) {  // Check if $dob is not null before using it
+            echo date("Y", strtotime($dob));
+        } else {
+            echo "N/A"; // Or any other placeholder you want
+        }
+        echo "<br>";
         echo "Custom Attress: $custom<br>";
         echo "Role: $role<br>";
+        $selected_letter = getFirstLetterAfterNumber($callsign) ;
         echo "Selected Letter: $selected_letter<br>";
-        echo "</div>";
-        // Establish database connection
-        $dbInfo = $config['sections'][$selectedLetter];
-        $pdo    = getPDOConnection($dbInfo);
-
-        if ($pdo) {
-            // Check if the callsign already exists *FIRST*
-            $checkSql = "SELECT 1 FROM tbl_Operator WHERE `Call` = :call"; // Correct column name
-            $checkStmt = $pdo->prepare($checkSql);
-            $checkStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
-            $checkStmt->execute();
-            $result = $checkStmt->fetchAll(PDO::FETCH_ASSOC); // Assign $result HERE, *before* the if condition
-    
-            if (count($result) > 0) {
-                echo "Callsign already exists. Choose a different callsign or update the existing record.";
-            } else {
-                // Insert the data (only if the callsign doesn't exist)
-                // ... (Your insert logic using prepared statements and the correct column names) ...
-            }
-        } else {
-            echo "Database connection error!";
-        }
-
-        if (count($result) == 0) {
-            // Debugging: Check values *before* calling insertData()
-            var_dump($pdo, $callsign, $status, $pc_em_date, $suffix, $first_name, $last_name, $address1, $address2, $city, $zip, $state, $phone, $alt_phone, $updated, $lic_exp, $lic_issued, $dob, $email, $class, $mail_inst, $new_call, $remarks, $attachments, $mail_label, $pc_sent, $year_of_birth, $old_call, $custom, $role);
-
-
-            $sql = "INSERT INTO `tbl_Operator` (`Call`, `Status`, `PC/em date`, `Suffix`, `FirstName`, `LastName`, `Address_1`, `Address_2`, `City`, `Zip`, `State`, `Phone`, `Alt_Phone`, `Updated`, `Lic-exp`, `Lic-issued`, `DOB`, `E-Mail`, `Class`, `Mail-Inst`, `NewCall`, `Remarks`, `Attachments`, `Mail-Label`, `PC_Sent`, `Year-of-birth`, `Old_call`) 
-            VALUES (:call, :status, :pc_em_date, :suffix, :first_name, :last_name, :address1, :address2, :city, :zip, :state, :phone, :alt_phone, :updated, :lic_exp, :lic_issued, :dob, :email, :class, :mail_inst, :new_call, :remarks, :attachments, :mail_label, :pc_sent, :year_of_birth, :old_call)";
         
-            $stmt = $pdo->prepare($sql);
-
-            if ($stmt) {
-                $stmt->bindValue(':call', $callsign, PDO::PARAM_STR); // Correct column name!
-                $stmt->bindValue(':status', $status, PDO::PARAM_STR);
-                $stmt->bindValue(':pc_em_date', $pc_em_date, PDO::PARAM_STR);
-                $stmt->bindValue(':suffix', $suffix, PDO::PARAM_STR);
-                $stmt->bindValue(':first_name', $first_name, PDO::PARAM_STR);
-                $stmt->bindValue(':last_name', $last_name, PDO::PARAM_STR);
-                $stmt->bindValue(':address1', $address1, PDO::PARAM_STR);
-                $stmt->bindValue(':address2', $address2, PDO::PARAM_STR);
-                $stmt->bindValue(':city', $city, PDO::PARAM_STR);
-                $stmt->bindValue(':zip', $zip, PDO::PARAM_STR);
-                $stmt->bindValue(':state', $state, PDO::PARAM_STR);
-                $stmt->bindValue(':phone', $phone, PDO::PARAM_STR);
-                $stmt->bindValue(':alt_phone', $alt_phone, PDO::PARAM_STR);
-                $stmt->bindValue(':updated', $updated, PDO::PARAM_STR);
-                $stmt->bindValue(':lic_exp', $lic_exp, PDO::PARAM_STR);
-                $stmt->bindValue(':lic_issued', $lic_issued, PDO::PARAM_STR);
-                $stmt->bindValue(':dob', $dob, PDO::PARAM_STR);
-                $stmt->bindValue(':email', $email, PDO::PARAM_STR);
-                $stmt->bindValue(':class', $class, PDO::PARAM_STR);
-                $stmt->bindValue(':mail_inst', $mail_inst, PDO::PARAM_STR);
-                $stmt->bindValue(':new_call', $new_call, PDO::PARAM_STR);
-                $stmt->bindValue(':remarks', $remarks, PDO::PARAM_STR);
-                $stmt->bindValue(':attachments', $attachments, PDO::PARAM_STR);
-                $stmt->bindValue(':mail_label', $mail_label, PDO::PARAM_INT);
-                $stmt->bindValue(':pc_sent', $pc_sent, PDO::PARAM_INT);
-                $stmt->bindValue(':year_of_birth', $year_of_birth, PDO::PARAM_STR);
-                $stmt->bindValue(':old_call', $old_call, PDO::PARAM_STR);
-
-                if ($stmt->execute()) {
-                    echo "New record created successfully";
-                } else {
-                    $errorInfo = $stmt->errorInfo();
-                    echo "Error inserting data: " . $errorInfo[2];
-                }
+        if (str_starts_with($selected_letter, "Error:")) { // Use $selected_letter consistently
+            
+            exit;
+        } else {
+          
+            
+            if (isset($config['sections'][$selected_letter])) {
+                $dbInfo = $config['sections'][$selected_letter];
             } else {
-                echo "Error preparing statement: " . $pdo->errorInfo()[2];
+                echo "Invalid Call for your access.";
+                exit;
             }
+            try {
+                $pdo = getPDOConnection($dbInfo);
+            
+                if ($pdo) {
+                    // Check if the callsign already exists *FIRST*
+                    $checkSql = "SELECT 1 FROM tbl_Operator WHERE `Call` = :call"; // Correct column name
+                    $checkStmt = $pdo->prepare($checkSql);
+                    $checkStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+                    $checkStmt->execute();
+                    $result = $checkStmt->fetchAll(PDO::FETCH_ASSOC); // Assign $result HERE, *before* the if condition
+            
+                   
+
+            if (count($result) == 0) 
+            {
+                // Debugging: Check values *before* calling insertData()
+                var_dump($pdo, $callsign, $status, $pc_em_date, $suffix, $first_name, $last_name, $address1, $address2, $city, $zip, $state, $phone, $alt_phone, $updated, $lic_exp, $lic_issued, $dob, $email, $class, $mail_inst, $new_call, $remarks, $attachments, $mail_label, $pc_sent, $year_of_birth, $old_call, $custom, $role);
+
+
+                $sql = "INSERT INTO `tbl_Operator` (`Call`, `Status`, `PC/em date`, `Suffix`, `FirstName`, `LastName`, `Address_1`, `Address_2`, `City`, `Zip`, `State`, `Phone`, `Alt_Phone`, `Updated`, `Lic-exp`, `Lic-issued`, `DOB`, `E-Mail`, `Class`, `Mail-Inst`, `NewCall`, `Remarks`, `Attachments`, `Mail-Label`, `PC_Sent`, `Year-of-birth`, `Old_call`) 
+                VALUES (:call, :status, :pc_em_date, :suffix, :first_name, :last_name, :address1, :address2, :city, :zip, :state, :phone, :alt_phone, :updated, :lic_exp, :lic_issued, :dob, :email, :class, :mail_inst, :new_call, :remarks, :attachments, :mail_label, :pc_sent, :year_of_birth, :old_call)";
+            
+                $stmt = $pdo->prepare($sql);
+
+                if ($stmt) 
+                {
+                    $stmt->bindValue(':call', $callsign, PDO::PARAM_STR); // Correct column name!
+                    $stmt->bindValue(':status', $status, PDO::PARAM_STR);
+                    $stmt->bindValue(':pc_em_date', $pc_em_date, PDO::PARAM_STR);
+                    $stmt->bindValue(':suffix', $suffix, PDO::PARAM_STR);
+                    $stmt->bindValue(':first_name', $first_name, PDO::PARAM_STR);
+                    $stmt->bindValue(':last_name', $last_name, PDO::PARAM_STR);
+                    $stmt->bindValue(':address1', $address1, PDO::PARAM_STR);
+                    $stmt->bindValue(':address2', $address2, PDO::PARAM_STR);
+                    $stmt->bindValue(':city', $city, PDO::PARAM_STR);
+                    $stmt->bindValue(':zip', $zip, PDO::PARAM_STR);
+                    $stmt->bindValue(':state', $state, PDO::PARAM_STR);
+                    $stmt->bindValue(':phone', $phone, PDO::PARAM_STR);
+                    $stmt->bindValue(':alt_phone', $alt_phone, PDO::PARAM_STR);
+                    $stmt->bindValue(':updated', $updated, PDO::PARAM_STR);
+                    $stmt->bindValue(':lic_exp', $lic_exp, PDO::PARAM_STR);
+                    $stmt->bindValue(':lic_issued', $lic_issued, PDO::PARAM_STR);
+                    $stmt->bindValue(':dob', $dob, PDO::PARAM_STR);
+                    $stmt->bindValue(':email', $email, PDO::PARAM_STR);
+                    $stmt->bindValue(':class', $class, PDO::PARAM_STR);
+                    $stmt->bindValue(':mail_inst', $mail_inst, PDO::PARAM_STR);
+                    $stmt->bindValue(':new_call', $new_call, PDO::PARAM_STR);
+                    $stmt->bindValue(':remarks', $remarks, PDO::PARAM_STR);
+                    $stmt->bindValue(':attachments', $attachments, PDO::PARAM_STR);
+                    $stmt->bindValue(':mail_label', $mail_label, PDO::PARAM_INT);
+                    $stmt->bindValue(':pc_sent', $pc_sent, PDO::PARAM_INT);
+                    $stmt->bindValue(':year_of_birth', $year_of_birth, PDO::PARAM_STR);
+                    $stmt->bindValue(':old_call', $old_call, PDO::PARAM_STR);
+
+                    if ($stmt->execute()) {
+                        echo "New record created successfully";
+                    } else {
+                        $errorInfo = $stmt->errorInfo();
+                        echo "Error inserting data: " . $errorInfo[2];
+                    }
+                } else {
+                    echo "Error preparing statement: " . $pdo->errorInfo()[2];
+                }
+            }
+            } 
+        }
+            catch (PDOException $e) 
+            {
+            echo "Database error: " . $e->getMessage(); // Display the error message
+            // Optionally log the error for debugging:
+            error_log("Database error: " . $e->getMessage()); 
+            } 
+            catch (Exception $e) { // Catch any other potential exceptions
+            echo "An error occurred: " . $e->getMessage();
+            error_log("An error occurred: " . $e->getMessage());
         }
     }
+}
     ?>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const submitButton = document.getElementById('submitButton');
-    const fetchButton = document.getElementById('fetchButton');
-    const clearButton = document.getElementById('clearButton');
-    const dataForm = document.getElementById('dataForm');
-    const customAddressCheckbox = document.getElementById('customAddress');
-
-    function fetchQRZData() {
-        const callsign = document.getElementById('callsign').value;
-        if (!callsign) {
-            alert('Please enter a callsign to fetch data from QRZ.');
-            return;
-        }
-
-        const apikey = <?php echo json_encode($config['qrz_api']['key']); ?>;
-        const apicall = <?php echo json_encode($config['qrz_api']['callsign']); ?>;
-
-        const initialUrl = `https://xmldata.qrz.com/xml/current/?username=${apicall}&password=${apikey}`;
-
-        fetch(initialUrl)
-            .then(response => response.text())
-            .then(data => {
-                const sessionKey = extractSessionKey(data);
-                if (sessionKey) {
-                    fetchCallsignData(sessionKey, callsign);
-                } else {
-                    console.error('Failed to retrieve session key.');
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching initial data:', error);
-            });
-
-        function extractSessionKey(xml) {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xml, "text/xml");
-            const keyNode = xmlDoc.getElementsByTagName("Key")[0];
-            if (keyNode) {
-                return keyNode.textContent.trim();
-            } else {
-                const errorNode = xmlDoc.getElementsByTagName("Error")[0];
-                if (errorNode) {
-                    alert(`Error: ${errorNode.textContent.trim()}`);
-                }
-                return null;
-            }
-        }
-
-        function fetchCallsignData(sessionKey, callsign) {
-            const url = `https://xmldata.qrz.com/xml/current/?s=${sessionKey};callsign=${callsign}`;
-
-            fetch(url)
-                .then(response => response.text())
-                .then(data => {
-                    console.log("QRZ Data:", data);
-                    parseXML(data);
-                })
-                .catch(error => {
-                    console.error('Error fetching callsign data:', error);
-                });
-        }
-
-        function parseXML(xml) {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xml, "text/xml");
-
-            const error = xmlDoc.getElementsByTagName("Error")[0];
-            if (error) {
-                alert(`Error: ${error.textContent}`);
-                return;
-            }
-
-            function removeInitials(name) {
-                return name.replace(/(?:\s[A-Z]\.?)+$/, '').trim();
-            }
-
-            const firstNameNode = xmlDoc.getElementsByTagName("fname")[0];
-            if (firstNameNode) {
-                document.getElementById('first_name').value = removeInitials(firstNameNode.textContent.trim());
-            }
-
-            const callNode = xmlDoc.getElementsByTagName("call")[0];
-            if (callNode) {
-                document.getElementById('callsign').value = callNode.textContent.trim();
-            }
-
-            const lastNameNode = xmlDoc.getElementsByTagName("name")[0];
-            if (lastNameNode) {
-                document.getElementById('last_name').value = lastNameNode.textContent.trim();
-            }
-
-            const addr1Node = xmlDoc.getElementsByTagName("addr1")[0];
-            if (addr1Node) {
-                document.getElementById('address').value = addr1Node.textContent.trim();
-            }
-
-            const addr2Node = xmlDoc.getElementsByTagName("addr2")[0];
-            if (addr2Node) {
-                document.getElementById('city').value = addr2Node.textContent.trim();
-            }
-
-            const stateNode = xmlDoc.getElementsByTagName("state")[0];
-            if (stateNode) {
-                document.getElementById('state').value = stateNode.textContent.trim();
-            }
-
-            const zipNode = xmlDoc.getElementsByTagName("zip")[0];
-            if (zipNode) {
-                document.getElementById('zip').value = zipNode.textContent.trim();
-            }
-
-            const countryNode = xmlDoc.getElementsByTagName("country")[0];
-            if (countryNode) {
-                document.getElementById('country').value = countryNode.textContent.trim();
-            }
-
-            const efdateNode = xmlDoc.getElementsByTagName("efdate")[0];
-            if (efdateNode) {
-                document.getElementById('date_start').value = efdateNode.textContent.trim();
-            }
-
-            const expdateNode = xmlDoc.getElementsByTagName("expdate")[0];
-            if (expdateNode) {
-                document.getElementById('date_exp').value = expdateNode.textContent.trim();
-            }
-
-            const classNode = xmlDoc.getElementsByTagName("class")[0];
-            if (classNode) {
-                const classMapping = {
-                    'E': 'Extra',
-                    'G': 'General',
-                    'T': 'Technician',
-                    'A': 'Advanced',
-                    'C': 'Club'
-                };
-                document.getElementById('class').value = classMapping[classNode.textContent.trim()] || classNode.textContent.trim();
-            }
-
-            const emailNode = xmlDoc.getElementsByTagName("email")[0];
-            if (emailNode) {
-                document.getElementById('email').value = emailNode.textContent.trim();
-            }
-
-            const bornNode = xmlDoc.getElementsByTagName("born")[0];
-            if (bornNode) {
-                document.getElementById('born').value = bornNode.textContent.trim();
-            }
-              // After populating fields, ALWAYS enable the submit button
-            submitButton.disabled = false;
-            submitButton.classList.remove('disabled-button');
-
-            // Since data was fetched, disable the fetch button
-            fetchButton.disabled = true;
-            fetchButton.classList.add('disabled-button');
-        }
-    }
-
-    function updateButtonStates() {
-        if (customAddressCheckbox.checked) {
-            submitButton.disabled = false;
-            submitButton.classList.remove('disabled-button');
-            fetchButton.disabled = true;
-            fetchButton.classList.add('disabled-button');
-        } else {
-            submitButton.disabled = true;
-            submitButton.classList.add('disabled-button');
-            fetchButton.disabled = false;
-            fetchButton.classList.remove('disabled-button');
-        }
-    }
-
-    customAddressCheckbox.addEventListener('change', updateButtonStates);
-    fetchButton.addEventListener('click', fetchQRZData);
-    clearButton.addEventListener('click', function () {
-        dataForm.reset();
-        customAddressCheckbox.checked = false;
-        updateButtonStates();
-    });
-
-    updateButtonStates();
-
-});
-</script>
-
-
 <?php
+
+$java = "$root/backend/java2.php";
+if (file_exists($java)) {
+    include($java);
+} else {
+    echo "Java2 file not found!";
+}
+
 $footerPath = "$root/backend/footer.php";
 if (file_exists($footerPath)) {
     include($footerPath);

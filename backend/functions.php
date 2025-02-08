@@ -684,6 +684,15 @@ function insertData($conn, $callsign, $first_name, $last_name, $class, $date_sta
     $stmt->close();
 }
 
+function getFirstLetterAfterNumber($call) {
+    if (preg_match('/(\d+)([a-zA-Z])/', $call, $matches)) {
+        return $matches[2]; // The letter is in the second capturing group
+    } elseif (preg_match('/^([a-zA-Z])/', $call, $matches)) { // Check for a letter at the beginning if no number
+        return $matches[1];
+    } else {
+        return "Error: Invalid format. Input: $call";
+    }
+}
 
 
 
