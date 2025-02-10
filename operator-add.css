@@ -110,9 +110,9 @@
 }
 
 
-/* General form styles (forms.css) - Put these in forms.css */
+/* General form styles (forms.css) */
 .container {
-    width: 50%; /* Or whatever width you want */
+    width: 50%;
     margin: 50px auto;
     padding: 20px;
     background: #fff;
@@ -162,8 +162,16 @@ input[type="text"], input[type="date"], input[type="email"], input[type="tel"], 
 }
 
 input[type="submit"], button {
-    width: 100%;
-    padding: 10px;
+    width: 200px; /* Fixed width */
+    height: 40px; /* Fixed height */
+    padding: 10px; /* Add padding to center text */
+    box-sizing: border-box; /* Include padding in width/height */
+    white-space: nowrap; /* Prevent text from wrapping */
+    overflow: hidden; /* Hide any overflowing text */
+    text-overflow: ellipsis; /* Add ellipsis (...) for overflow */
+    display: inline-flex; /* Use flexbox for alignment */
+    align-items: center; /* Vertically center text */
+    justify-content: center; /* Horizontally center text */
     background-color: #28a745;
     color: #fff;
     border: none;
@@ -212,14 +220,6 @@ input[type="submit"]:hover:enabled, button:hover:enabled {
     padding: 20px;
 }
 
-.container {
-    width: 50%;
-    margin: 50px auto;
-    padding: 20px;
-    background: #fff;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
 .form-wrapper {
     border: 1px solid #ccc; /* Border around the wrapper */
     padding: 20px;
@@ -242,12 +242,4 @@ form label {
 
 form input, form select {
     /* ... other styles ... */
-}
-
-button, input[type="submit"] {  /* Target all your buttons */
-    width: 150px; /* Fixed width */
-    height: 40px; /* Fixed height */
-    padding: 10px; /* Add padding to center text */
-    box-sizing: border-box; /* Include padding in width/height */
-    /* ... other button styles ... */
 }

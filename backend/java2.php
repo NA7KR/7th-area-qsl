@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
             fetch(url)
                 .then(response => response.text())
                 .then(data => {
-                    console.log("QRZ Data:", data);
+                    //console.log("QRZ Data:", data);
                     parseXML(data);
                 })
                 .catch(error => {
