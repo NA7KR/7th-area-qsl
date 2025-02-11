@@ -243,3 +243,14 @@ form label {
 form input, form select {
     /* ... other styles ... */
 }
+
+#messageDiv {
+    text-align: center;
+    font-size: 1.5em; /* Adjust font size as needed */
+    animation: flashText 1s infinite;
+  }
+
+  @keyframes flashText {
+    0%, 100% { color: red; }
+    50% { color: black; }
+  }

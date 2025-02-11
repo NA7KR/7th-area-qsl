@@ -16,8 +16,9 @@ limitations under the License.
 */
 
 session_start();
-// print_r($_POST);
-
+#print_r($_POST);
+$callExists = false;
+$msgecho = "";
 $root  = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Page to Add Operator ";
 $config = include('config.php');
@@ -30,6 +31,7 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
 }
+$role = $_SESSION['role'] ?? 'Admin';
 
 // Retrieve the selected letter from session, if available
 $selectedLetter = $_SESSION['selected_letter'] ?? '';
@@ -46,6 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['letter_select_form'])
 
 $isLoggedIn      = isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true;
 $role            = $_SESSION['role'] ?? 'Admin';
+$user = strtoupper($_SESSION['username'] ?? 'No Call');
 $available_roles = ['User', 'Admin', 'Ops'];
 
 // Enable error reporting for debugging
@@ -53,11 +56,13 @@ ini_set('error_reporting', E_ALL);
 ini_set('display_errors', '1');
 ?>
 <div class="center-content">
-    <img src="/7thArea.png" alt="7th Area" />
+   
 </div>
 
 <div id="operator-add-container">
-    <h1 class="center-content">Add New User</h1>
+    <h1 class="center-content"><?php echo "Hello $user"; ?>, Add New User</h1>
+
+    <div id="messageDiv"></div>
     <div class="form-wrapper">
         <form method="post" id="dataForm">
             <!-- Callsign Field -->
@@ -261,7 +266,37 @@ ini_set('display_errors', '1');
      
         $selected_letter = getFirstLetterAfterNumber($callsign);
         //echo "Selected Letter: $selected_letter<br>";
+        try{
+            $dbInfo = $config['db'];
+            $pdo = getPDOConnection($dbInfo);
 
+            if ($pdo) {
+                $checkSql = "SELECT CASE WHEN EXISTS (
+                                 SELECT 1 FROM `sections` 
+                                 WHERE `call` = :call 
+                                   AND `letter` = :letter 
+                                   AND `status` = 'Edit'
+                               ) THEN 1 ELSE 0 END AS result;";
+                $checkStmt = $pdo->prepare($checkSql);
+                $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
+                $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
+                $checkStmt->execute();
+                
+                // Fetch one row as an associative array.
+                $access = $checkStmt->fetch(PDO::FETCH_ASSOC);  
+            }
+            
+            if ($access['result'] == 0) {   
+                $msgecho = "Access denied for user: $user and Role: $role adding  $callsign";
+                exit;
+            } 
+                     
+        }
+        catch (Exception $e) {
+            $msgecho = "Error: " . $e->getMessage();
+        }
+
+        // 
         // If the selected letter returns an error, exit immediately
         if (str_starts_with($selected_letter, "Error:")) {
             exit;
@@ -269,7 +304,7 @@ ini_set('display_errors', '1');
             if (isset($config['sections'][$selected_letter])) {
                 $dbInfo = $config['sections'][$selected_letter];
             } else {
-                echo "Invalid Call for your access.";
+                $msgecho = "Invalid Call for your access.";
                 exit;
             }
 
@@ -277,6 +312,8 @@ ini_set('display_errors', '1');
                 $pdo = getPDOConnection($dbInfo);
 
                 if ($pdo) {
+                    
+
                     // Check if the callsign already exists
                     $checkSql  = "SELECT 1 FROM tbl_Operator WHERE `Call` = :call";
                     $checkStmt = $pdo->prepare($checkSql);
@@ -284,8 +321,8 @@ ini_set('display_errors', '1');
                     $checkStmt->execute();
                     $result = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
 
-                    if (count($result) == 0) {
-                       
+                    if (count($result) == 0) 
+                    {   
                         echo "<div class='result'>";
                         echo "<h3>Submitted Data:</h3>";
                         echo "Callsign: $callsign<br>";
@@ -375,13 +412,18 @@ ini_set('display_errors', '1');
                         } else {
                             echo "Error preparing statement: " . $pdo->errorInfo()[2];
                         }
+                    
                     }
+                else {
+                    $msgecho = "User $callsign is already in the database.";
+                    $callExists = true;
                 }
+            }
             } catch (PDOException $e) {
-                echo "Database error: " . $e->getMessage();
+                $msgecho = "Database error: " . $e->getMessage();
                 error_log("Database error: " . $e->getMessage());
             } catch (Exception $e) {
-                echo "An error occurred: " . $e->getMessage();
+                $msgecho = "An error occurred: " . $e->getMessage();
                 error_log("An error occurred: " . $e->getMessage());
             }
         }

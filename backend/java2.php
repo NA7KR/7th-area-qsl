@@ -7,6 +7,12 @@
         const clearButton = document.getElementById('clearButton');
         const dataForm = document.getElementById('dataForm');
         const customAddressSelect = document.getElementById('customAddress');
+        const callExistsMessage = document.getElementById('callExistsMessage');
+        const message = <?php echo json_encode($msgecho); ?>;
+    // Now you can use the message variable in JavaScript
+    console.log(message);
+    // To display it on the page:
+    document.getElementById('messageDiv').innerHTML = message;
 
         function fetchQRZData() {
             const callsign = document.getElementById('callsign').value;
@@ -172,6 +178,21 @@
             }
         }
 
+        function displayMessage(message) {
+            const callExistsMessage = document.getElementById('callExistsMessage');
+            callExistsMessage.innerHTML = message;
+            callExistsMessage.style.display = 'block';
+        }
+
+        function displayMessage(message) {
+      const messageDiv = document.getElementById('messageDiv');
+      if (messageDiv) {
+        messageDiv.textContent = message;
+        messageDiv.style.display = 'block';
+        messageDiv.classList.add('flash'); // Start the flash animation
+      }
+    
+    }
         customAddressSelect.addEventListener('change', updateButtonStates);
         fetchButton.addEventListener('click', fetchQRZData);
         clearButton.addEventListener('click', function () {
