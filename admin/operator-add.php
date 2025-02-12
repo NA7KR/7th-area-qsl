@@ -55,12 +55,9 @@ $available_roles = ['User', 'Admin', 'Ops'];
 ini_set('error_reporting', E_ALL);
 ini_set('display_errors', '1');
 ?>
-<div class="center-content">
-   
-</div>
-
+<div class="center-content"></div>
 <div id="operator-add-container">
-    <h1 class="center-content"><?php echo "Hello $user"; ?>, Add New User</h1>
+    <h1 class="center-content">Add New User</h1>
 
     <div id="messageDiv"></div>
     <div class="form-wrapper">
@@ -145,12 +142,13 @@ ini_set('display_errors', '1');
                 <label for="zip" style="margin-right: 10px; white-space: nowrap;">Zip:</label>
                 <input type="text" id="zip" name="zip">
             </div>
-
+            <!--
             <div style="display: flex; align-items: center;">
                 <label for="country" style="margin-right: 10px; white-space: nowrap;">Country:</label>
                 <input type="text" id="country" name="country">
             </div>
-
+            
+        
             <!-- Email and Phone Fields -->
             <div style="display: flex; align-items: center;">
                 <label for="email" style="margin-right: 10px; white-space: nowrap;">Email:</label>
@@ -238,7 +236,7 @@ ini_set('display_errors', '1');
         $city        = htmlspecialchars($_POST['city']);
         $state       = htmlspecialchars($_POST['state']);
         $zip         = htmlspecialchars($_POST['zip']);
-        $country     = htmlspecialchars($_POST['country']);
+        //$country     = htmlspecialchars($_POST['country']);
         $email       = htmlspecialchars($_POST['email']);
         $phone       = htmlspecialchars($_POST['phone']);
         $dob         = htmlspecialchars($_POST['born'] ?? null);
@@ -339,7 +337,7 @@ ini_set('display_errors', '1');
                         echo "City: $city<br>";
                         echo "State: $state<br>";
                         echo "Zip: $zip<br>";
-                        echo "Country: $country<br>";
+                        //echo "Country: $country<br>";
                         echo "Email: $email<br>";
                         echo "Phone: $phone<br>";
                         echo "Born: " . ($dob !== null ? date("Y", strtotime($dob)) : "N/A") . "<br>";

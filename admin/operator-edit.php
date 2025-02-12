@@ -1,297 +1,407 @@
 <?php
-/*
-Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
- */
 session_start();
+$root  = realpath($_SERVER["DOCUMENT_ROOT"]);
+$title = "Edit Operator";
+$config = include('config.php');
+include("$root/backend/header.php");
 
-$root = realpath($_SERVER["DOCUMENT_ROOT"]);
-$title = "Page to Edit Operator";
-$config = include($root . '/config.php');
-
-include("$root/backend/header.php"); 
-
+// Ensure the user is logged in.
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
 }
 
-ini_set('error_reporting', E_ALL);
-ini_set('display_errors', '1');
-?>
-<div class="center-content">
-<img src="/7thArea.png" alt="7th Area" />
+$role = $_SESSION['role'] ?? 'Admin';
+$user = strtoupper($_SESSION['username'] ?? 'No Call');
+$available_roles = ['User', 'Admin', 'Ops'];
 
-</div>
-<div class="container">
-    <h2>Submit Your Information</h2>
-    <form method="post" id="dataForm">
-        <div><label for="callsign">Callsign</label><input type="text" id="callsign" name="callsign" required></div>
-        <div><label for="first_name">First Name</label><input type="text" id="first_name" name="first_name" required></div>
-        <div><label for="last_name">Last Name</label><input type="text" id="last_name" name="last_name" required></div>
-        <div><label for="class">Class</label><input type="text" id="class" name="class"></div>
-        <div><label for="date_start">Start Date</label><input type="text" id="date_start" name="date_start"></div>
-        <div><label for="date_exp">Expiration Date</label><input type="text" id="date_exp" name="date_exp"></div>
-        <div><label for="new_call">New Call</label><input type="text" id="new_call" name="new_call"></div>
-        <div><label for="old_call">Old Call</label><input type="text" id="old_call" name="old_call"></div>
-        <div class="full-width"><label for="address">Address</label><input type="text" id="address" name="address"></div>
-        <div class="full-width"><label for="address2">Address 2</label><input type="text" id="address2" name="address2"></div>
-        <div><label for="city">City</label><input type="text" id="city" name="city"></div>
-        <div><label for="state">State</label><input type="text" id="state" name="state"></div>
-        <div><label for="zip">Zip</label><input type="text" id="zip" name="zip"></div>
-        <div><label for="country">Country</label><input type="text" id="country" name="country"></div>
-        <div><label for="email">Email</label><input type="email" id="email" name="email"></div>
-        <div><label for="phone">Phone</label><input type="tel" id="phone" name="phone"></div>
-        <div><label for="born">Born</label><input type="text" id="born" name="born"></div>
-        <div class="full-width">
-            <input type="submit" value="Submit" id="submitButton" disabled>
-        </div>
-        <div class="full-width">
-            <button type="button" id="fetchButton">Fetch Data from QRZ</button>
-        </div>
-        <div class="full-width">
-            <button type="button" id="clearButton">Clear</button>
-        </div>
-    </form>
+// --- Default values for the form fields ---
+$callsign     = "";
+$suffix       = "";
+$first_name   = "";
+$last_name    = "";
+$class        = "";
+$date_start   = "";
+$date_exp     = "";
+$new_call     = "";
+$old_call     = "";
+$address      = "";
+$address2     = "";
+$city         = "";
+$state        = "";
+$zip          = "";
+$country      = "";
+$email        = "";
+$phone        = "";
+$born         = "";
+$customAddress= "";
+$roleField    = "User";
 
-    <?php
-    if ($_SERVER["REQUEST_METHOD"] == "POST") {
-        $callsign = htmlspecialchars($_POST['callsign']);
-        $first_name = htmlspecialchars($_POST['first_name']);
-        $last_name = htmlspecialchars($_POST['last_name']);
-        $class = htmlspecialchars($_POST['class']);
-        $date_start = htmlspecialchars($_POST['date_start']);
-        $date_exp = htmlspecialchars($_POST['date_exp']);
-        $new_call = htmlspecialchars($_POST['new_call']);
-        $old_call = htmlspecialchars($_POST['old_call']);
-        $address = htmlspecialchars($_POST['address']);
-        $address2 = htmlspecialchars($_POST['address2']);
-        $city = htmlspecialchars($_POST['city']);
-        $state = htmlspecialchars($_POST['state']);
-        $zip = htmlspecialchars($_POST['zip']);
-        $country = htmlspecialchars($_POST['country']);
-        $email = htmlspecialchars($_POST['email']);
-        $phone = htmlspecialchars($_POST['phone']);
-        $born = htmlspecialchars($_POST['born']);
+$message = ""; // Message to display to the user
 
-        echo "<div class='result'>";
-        echo "<h3>Submitted Data:</h3>";
-        echo "Callsign: $callsign<br>";
-        echo "First Name: $first_name<br>";
-        echo "Last Name: $last_name<br>";
-        echo "Class: $class<br>";
-        echo "Start Date: $date_start<br>";
-        echo "Expiration Date: $date_exp<br>";
-        echo "New Call: $new_call<br>";
-        echo "Old Call: $old_call<br>";
-        echo "Address: $address<br>";
-        echo "Address 2: $address2<br>";
-        echo "City: $city<br>";
-        echo "State: $state<br>";
-        echo "Zip: $zip<br>";
-        echo "Country: $country<br>";
-        echo "Email: $email<br>";
-        echo "Phone: $phone<br>";
-        echo "Born: $born<br>";
-        echo "</div>";
-    }
-    ?>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const submitButton = document.getElementById('submitButton');
-    const fetchButton = document.getElementById('fetchButton');
-    const clearButton = document.getElementById('clearButton');
-    const dataForm = document.getElementById('dataForm');
 
-    fetchButton.addEventListener('click', function () {
-        fetchQRZData();
-    });
-
-    clearButton.addEventListener('click', function () {
-        dataForm.reset();
-        submitButton.disabled = true;
-        submitButton.classList.add('disabled-button');
-        fetchButton.disabled = false;
-        fetchButton.classList.remove('disabled-button');
-    });
-
-    function fetchQRZData() {
-        const callsign = document.getElementById('callsign').value;
-        if (!callsign) {
-            alert('Please enter a callsign to fetch data from QRZ.');
-            return;
-        }
-
-        fetchButton.disabled = true;  // Disable fetch button after clicking
-        fetchButton.classList.add('disabled-button');
-
-        const apikey = <?php echo json_encode($config['qrz_api']['key']); ?>;
-        const apicall = <?php echo json_encode($config['qrz_api']['callsign']); ?>;
-
-        const initialUrl = `https://xmldata.qrz.com/xml/current/?username=${apicall}&password=${apikey}`;
-
-        fetch(initialUrl)
-            .then(response => response.text())
-            .then(data => {
-                const sessionKey = extractSessionKey(data);
-                if (sessionKey) {
-                    fetchCallsignData(sessionKey, callsign);
-                } else {
-                    console.error('Failed to retrieve session key.');
-                    fetchButton.disabled = false;  // Re-enable fetch button on error
-                    fetchButton.classList.remove('disabled-button');
+// --- Process POST data ---
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    if (isset($_POST['action']) && $_POST['action'] === "load") {
+        // --- LOAD OPERATOR DATA ---
+        // Normalize the callsign (convert to uppercase and trim whitespace).
+        $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
+        if (empty($callsign)) {
+            $message = "Please enter a callsign to load.";
+        } else {
+            // Determine which section the callsign belongs to.
+            $selected_letter = getFirstLetterAfterNumber($callsign);
+            try {
+                // Verify that the logged‑in user has permission to edit this section.
+                $dbInfo = $config['db'];
+                $pdo = getPDOConnection($dbInfo);
+                if ($pdo) {
+                    $checkSql = "SELECT CASE WHEN EXISTS (
+                                    SELECT 1 FROM `sections` 
+                                    WHERE `call` = :call 
+                                      AND `letter` = :letter 
+                                      AND `status` = 'Edit'
+                                  ) THEN 1 ELSE 0 END AS result;";
+                    $checkStmt = $pdo->prepare($checkSql);
+                    $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
+                    $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
+                    $checkStmt->execute();
+                    $access = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($access['result'] == 0) {
+                        $message = "Access denied for user: $user for editing $callsign";
+                    } else {
+                        // Use the section-specific database connection.
+                        if (isset($config['sections'][$selected_letter])) {
+                            $dbInfo = $config['sections'][$selected_letter];
+                        } else {
+                            $message = "Invalid callsign for your access.";
+                        }
+                        if (empty($message)) {
+                            $pdo = getPDOConnection($dbInfo);
+                            if ($pdo) {
+                                $sql = "SELECT * FROM tbl_Operator WHERE `Call` = :call LIMIT 1";
+                                $stmt = $pdo->prepare($sql);
+                                $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+                                if ($stmt->execute()) {
+                                    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                                    if ($result) {
+                                        // Pre-fill form variables from the database record.
+                                        $callsign      = $result['Call']       ?? "";
+                                        $suffix        = $result['Suffix']     ?? "";
+                                        $first_name    = $result['FirstName']  ?? "";
+                                        $last_name     = $result['LastName']   ?? "";
+                                        $class         = $result['Class']      ?? "";
+                                        $date_start    = $result['Lic-issued'] ?? "";
+                                        $date_exp      = $result['Lic-exp']    ?? "";
+                                        $new_call      = $result['NewCall']    ?? "";
+                                        $old_call      = $result['Old_call']   ?? "";
+                                        $address       = $result['Address_1']  ?? "";
+                                        $address2      = $result['Address_2']  ?? "";
+                                        $city          = $result['City']       ?? "";
+                                        $state         = $result['State']      ?? "";
+                                        $zip           = $result['Zip']        ?? "";
+                                        $country       = $result['Country']    ?? "";
+                                        $email         = $result['E-Mail']     ?? "";
+                                        $phone         = $result['Phone']      ?? "";
+                                        $born          = $result['DOB']        ?? "";
+                                        $customAddress = $result['Status']     ?? "";
+                                        $roleField     = $result['Role']       ?? "User";
+                                        $message = "Data loaded for callsign: $callsign";
+                                    } else {
+                                        $message = "Operator with callsign $callsign not found.";
+                                    }
+                                } else {
+                                    $message = "Error executing load query.";
+                                }
+                            }
+                        }
+                    }
                 }
-            })
-            .catch(error => {
-                console.error('Error fetching initial data:', error);
-                fetchButton.disabled = false;  // Re-enable fetch button on error
-                fetchButton.classList.remove('disabled-button');
-            });
+            } catch (Exception $e) {
+                $message = "Error: " . $e->getMessage();
+            }
+        }
+    } elseif (isset($_POST['action']) && $_POST['action'] === "update") {
+        // --- UPDATE OPERATOR DATA ---
+        $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
+        if (empty($callsign)) {
+            $message = "Callsign is required for update.";
+        } else {
+            $selected_letter = getFirstLetterAfterNumber($callsign);
+            try {
+                $dbInfo = $config['db'];
+                $pdo = getPDOConnection($dbInfo);
+                if ($pdo) {
+                    $checkSql = "SELECT CASE WHEN EXISTS (
+                                    SELECT 1 FROM `sections` 
+                                    WHERE `call` = :call 
+                                      AND `letter` = :letter 
+                                      AND `status` = 'Edit'
+                                  ) THEN 1 ELSE 0 END AS result;";
+                    $checkStmt = $pdo->prepare($checkSql);
+                    $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
+                    $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
+                    $checkStmt->execute();
+                    $access = $checkStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($access['result'] == 0) {
+                        $message = "Access denied for user: $user for editing $callsign";
+                    } else {
+                        if (isset($config['sections'][$selected_letter])) {
+                            $dbInfo = $config['sections'][$selected_letter];
+                        } else {
+                            $message = "Invalid callsign for your access.";
+                        }
+                        if (empty($message)) {
+                            $pdo = getPDOConnection($dbInfo);
+                            if ($pdo) {
+                                // Sanitize and collect all form fields.
+                                $suffix        = trim($_POST['suffix'] ?? '');
+                                $first_name    = trim($_POST['first_name'] ?? '');
+                                $last_name     = trim($_POST['last_name'] ?? '');
+                                $class         = trim($_POST['class'] ?? '');
+                                $date_start    = trim($_POST['date_start'] ?? '');
+                                $date_exp      = trim($_POST['date_exp'] ?? '');
+                                $new_call      = trim($_POST['new_call'] ?? '');
+                                $old_call      = trim($_POST['old_call'] ?? '');
+                                $address       = trim($_POST['address'] ?? '');
+                                $address2      = trim($_POST['address2'] ?? '');
+                                $city          = trim($_POST['city'] ?? '');
+                                $state         = trim($_POST['state'] ?? '');
+                                $zip           = trim($_POST['zip'] ?? '');
+                                $email         = trim($_POST['email'] ?? '');
+                                $phone         = trim($_POST['phone'] ?? '');
+                                $born          = trim($_POST['born'] ?? '');
+                                $customAddress = trim($_POST['customAddress'] ?? '');
+                                if ($role === 'Admin') {
+                                    $roleField = trim($_POST['role'] ?? 'User');
+                                }
+                                // Optionally adjust the DOB format.
+                                if (!empty($born)) {
+                                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $born)) {
+                                        $born .= " 00:00:00";
+                                    }
+                                }
+                                $updated = date("Y-m-d");
 
-        function extractSessionKey(xml) {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xml, "text/xml");
-            const keyNode = xmlDoc.getElementsByTagName("Key")[0];
-            if (keyNode) {
-                return keyNode.textContent.trim();
-            } else {
-                const errorNode = xmlDoc.getElementsByTagName("Error")[0];
-                if (errorNode) {
-                    alert(`Error: ${errorNode.textContent.trim()}`);
+                                // Build the UPDATE query.
+                                $sql = "UPDATE tbl_Operator SET
+                                            `Suffix` = :suffix,
+                                            `FirstName` = :first_name,
+                                            `LastName` = :last_name,
+                                            `Class` = :class,
+                                            `Lic-issued` = :lic_issued,
+                                            `Lic-exp` = :lic_exp,
+                                            `NewCall` = :new_call,
+                                            `Old_call` = :old_call,
+                                            `Address_1` = :address1,
+                                            `Address_2` = :address2,
+                                            `City` = :city,
+                                            `State` = :state,
+                                            `Zip` = :zip,
+                                            `E-Mail` = :email,
+                                            `Phone` = :phone,
+                                            `DOB` = :dob,
+                                            `Status` = :status,
+                                            `Updated` = :updated
+                                        WHERE `Call` = :call";
+                                $stmt = $pdo->prepare($sql);
+                                $stmt->bindValue(':suffix', $suffix, PDO::PARAM_STR);
+                                $stmt->bindValue(':first_name', $first_name, PDO::PARAM_STR);
+                                $stmt->bindValue(':last_name', $last_name, PDO::PARAM_STR);
+                                $stmt->bindValue(':class', $class, PDO::PARAM_STR);
+                                $stmt->bindValue(':lic_issued', $date_start, PDO::PARAM_STR);
+                                $stmt->bindValue(':lic_exp', $date_exp, PDO::PARAM_STR);
+                                $stmt->bindValue(':new_call', $new_call, PDO::PARAM_STR);
+                                $stmt->bindValue(':old_call', $old_call, PDO::PARAM_STR);
+                                $stmt->bindValue(':address1', $address, PDO::PARAM_STR);
+                                $stmt->bindValue(':address2', $address2, PDO::PARAM_STR);
+                                $stmt->bindValue(':city', $city, PDO::PARAM_STR);
+                                $stmt->bindValue(':state', $state, PDO::PARAM_STR);
+                                $stmt->bindValue(':zip', $zip, PDO::PARAM_STR);
+                                $stmt->bindValue(':email', $email, PDO::PARAM_STR);
+                                $stmt->bindValue(':phone', $phone, PDO::PARAM_STR);
+                                $stmt->bindValue(':dob', $born, PDO::PARAM_STR);
+                                $stmt->bindValue(':status', $customAddress, PDO::PARAM_STR);
+                                $stmt->bindValue(':updated', $updated, PDO::PARAM_STR);
+                                $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+
+                                if ($stmt->execute()) {
+                                    $message = "Record updated successfully for callsign: $callsign";
+                                } else {
+                                    $message = "Error updating record.";
+                                }
+                            }
+                        }
+                    }
                 }
-                return null;
-            }
-        }
-
-        function fetchCallsignData(sessionKey, callsign) {
-            const url = `https://xmldata.qrz.com/xml/current/?s=${sessionKey};callsign=${callsign}`;
-
-            fetch(url)
-                .then(response => response.text())
-                .then(data => {
-                    parseXML(data);
-                    submitButton.disabled = false;
-                    submitButton.classList.remove('disabled-button');
-                })
-                .catch(error => {
-                    console.error('Error fetching data:', error);
-                    fetchButton.disabled = false;  // Re-enable fetch button on error
-                    fetchButton.classList.remove('disabled-button');
-                });
-        }
-
-        function parseXML(xml) {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xml, "text/xml");
-
-            const error = xmlDoc.getElementsByTagName("Error")[0];
-            if (error) {
-                alert(`Error: ${error.textContent}`);
-                fetchButton.disabled = false;  // Re-enable fetch button on error
-                fetchButton.classList.remove('disabled-button');
-                return;
-            }
-
-            function removeInitials(name) {
-                return name.replace(/(?:\s[A-Z]\.?)+$/, '').trim();
-            }
-
-            const firstNameNode = xmlDoc.getElementsByTagName("fname")[0];
-            if (firstNameNode) {
-                document.getElementById('first_name').value = removeInitials(firstNameNode.textContent.trim());
-            }
-
-            const callNode = xmlDoc.getElementsByTagName("call")[0];
-            if (callNode) {
-                document.getElementById('callsign').value = callNode.textContent.trim();
-            }
-
-            const lastNameNode = xmlDoc.getElementsByTagName("name")[0];
-            if (lastNameNode) {
-                document.getElementById('last_name').value = lastNameNode.textContent.trim();
-            }
-
-            const addr1Node = xmlDoc.getElementsByTagName("addr1")[0];
-            if (addr1Node) {
-                document.getElementById('address').value = addr1Node.textContent.trim();
-            }
-
-            const addr2Node = xmlDoc.getElementsByTagName("addr2")[0];
-            if (addr2Node) {
-                document.getElementById('city').value = addr2Node.textContent.trim();
-            }
-
-            const stateNode = xmlDoc.getElementsByTagName("state")[0];
-            if (stateNode) {
-                document.getElementById('state').value = stateNode.textContent.trim();
-            }
-
-            const zipNode = xmlDoc.getElementsByTagName("zip")[0];
-            if (zipNode) {
-                document.getElementById('zip').value = zipNode.textContent.trim();
-            }
-
-            const countryNode = xmlDoc.getElementsByTagName("country")[0];
-            if (countryNode) {
-                document.getElementById('country').value = countryNode.textContent.trim();
-            }
-
-            const efdateNode = xmlDoc.getElementsByTagName("efdate")[0];
-            if (efdateNode) {
-                document.getElementById('date_start').value = efdateNode.textContent.trim();
-            }
-
-            const expdateNode = xmlDoc.getElementsByTagName("expdate")[0];
-            if (expdateNode) {
-                document.getElementById('date_exp').value = expdateNode.textContent.trim();
-            }
-
-            const classNode = xmlDoc.getElementsByTagName("class")[0];
-            if (classNode) {
-                const classMapping = {
-                    'E': 'Extra',
-                    'G': 'General',
-                    'T': 'Technician',
-                    'A': 'Advanced',
-                    'C': 'Club'
-                };
-                document.getElementById('class').value = classMapping[classNode.textContent.trim()] || classNode.textContent.trim();
-            }
-
-            const emailNode = xmlDoc.getElementsByTagName("email")[0];
-            if (emailNode) {
-                document.getElementById('email').value = emailNode.textContent.trim();
-            }
-
-            const bornNode = xmlDoc.getElementsByTagName("born")[0];
-            if (bornNode) {
-                document.getElementById('born').value = bornNode.textContent.trim();
+            } catch (Exception $e) {
+                $message = "Error: " . $e->getMessage();
             }
         }
     }
-});
-</script>
-
-<?php
-$footerPath = "$root/backend/footer.php";
-if (file_exists($footerPath)) {
-    include($footerPath);
-} else {
-    echo "Footer file not found!";
 }
 ?>
-</body>
-</html>
+<div class="center-content"></div>
+<div id="operator-add-container">
+    <h1 class="center-content">Add New User</h1>
+    <div id="messageDiv"></div>
+    <?php if (!empty($message)) { echo "<div id='messageDiv'>" . htmlspecialchars($message) . "</div>"; } ?>
+    <div class="form-wrapper">
+        <form method="post" action="operator-edit.php" id="dataForm">
+            <!-- Callsign Field (remains required) -->
+            <div style="display: flex; align-items: center;">
+                <label for="callsign" style="margin-right: 10px; white-space: nowrap;">Callsign:</label>
+                <input type="text" id="callsign" name="callsign" value="<?php echo htmlspecialchars($callsign); ?>" required>
+            </div>
+
+            <!-- Suffix Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="suffix" style="margin-right: 10px; white-space: nowrap;">Suffix:</label>
+                <input type="text" id="suffix" name="suffix" value="<?php echo htmlspecialchars($suffix); ?>">
+            </div>
+
+            <!-- First Name Field (required removed) -->
+            <div style="display: flex; align-items: center;">
+                <label for="first_name" style="margin-right: 10px; white-space: nowrap;">First Name:</label>
+                <input type="text" id="first_name" name="first_name" value="<?php echo htmlspecialchars($first_name); ?>">
+            </div>
+
+            <!-- Last Name Field (required removed) -->
+            <div style="display: flex; align-items: center;">
+                <label for="last_name" style="margin-right: 10px; white-space: nowrap;">Last Name:</label>
+                <input type="text" id="last_name" name="last_name" value="<?php echo htmlspecialchars($last_name); ?>">
+            </div>
+
+            <!-- Class Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="class" style="margin-right: 10px; white-space: nowrap;">Class:</label>
+                <input type="text" id="class" name="class" value="<?php echo htmlspecialchars($class); ?>">
+            </div>
+
+            <!-- Start Date Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="date_start" style="margin-right: 10px; white-space: nowrap;">Start Date:</label>
+                <input type="text" id="date_start" name="date_start" value="<?php echo htmlspecialchars($date_start); ?>">
+            </div>
+
+            <!-- Expiration Date Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="date_exp" style="margin-right: 10px; white-space: nowrap;">Expiration Date:</label>
+                <input type="text" id="date_exp" name="date_exp" value="<?php echo htmlspecialchars($date_exp); ?>">
+            </div>
+
+            <!-- New Call Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="new_call" style="margin-right: 10px; white-space: nowrap;">New Call:</label>
+                <input type="text" id="new_call" name="new_call" value="<?php echo htmlspecialchars($new_call); ?>">
+            </div>
+
+            <!-- Old Call Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="old_call" style="margin-right: 10px; white-space: nowrap;">Old Call:</label>
+                <input type="text" id="old_call" name="old_call" value="<?php echo htmlspecialchars($old_call); ?>">
+            </div>
+
+            <!-- Address Fields -->
+            <div style="display: flex; align-items: center;" class="full-width">
+                <label for="address" style="margin-right: 10px; white-space: nowrap;">Address:</label>
+                <input type="text" id="address" name="address" class="full-width-input" value="<?php echo htmlspecialchars($address); ?>">
+            </div>
+            <div style="display: flex; align-items: center;" class="full-width">
+                <label for="address2" style="margin-right: 10px; white-space: nowrap;">Address 2:</label>
+                <input type="text" id="address2" name="address2" class="full-width-input" value="<?php echo htmlspecialchars($address2); ?>">
+            </div>
+
+            <!-- City, State, Zip, and Country Fields -->
+            <div style="display: flex; align-items: center;">
+                <label for="city" style="margin-right: 10px; white-space: nowrap;">City:</label>
+                <input type="text" id="city" name="city" value="<?php echo htmlspecialchars($city); ?>">
+            </div>
+            <div style="display: flex; align-items: center;">
+                <label for="state" style="margin-right: 10px; white-space: nowrap;">State:</label>
+                <input type="text" id="state" name="state" value="<?php echo htmlspecialchars($state); ?>">
+            </div>
+            <div style="display: flex; align-items: center;">
+                <label for="zip" style="margin-right: 10px; white-space: nowrap;">Zip:</label>
+                <input type="text" id="zip" name="zip" value="<?php echo htmlspecialchars($zip); ?>">
+            </div>
+       
+
+            <!-- Email and Phone Fields -->
+            <div style="display: flex; align-items: center;">
+                <label for="email" style="margin-right: 10px; white-space: nowrap;">Email:</label>
+                <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>">
+            </div>
+            <div style="display: flex; align-items: center;">
+                <label for="phone" style="margin-right: 10px; white-space: nowrap;">Phone:</label>
+                <input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($phone); ?>">
+            </div>
+
+            <!-- Born Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="born" style="margin-right: 10px; white-space: nowrap;">Born:</label>
+                <input type="text" id="born" name="born" value="<?php echo htmlspecialchars($born); ?>">
+            </div>
+
+            <!-- Status / Custom Address Field -->
+            <?php if ($role == 'Admin'): ?>
+                <div class="full-width" style="display: flex; align-items: center;">
+                    <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Status</label>
+                    <select name="customAddress" id="customAddress">
+                        <option value="Active" <?php if ($customAddress === 'Active') echo 'selected'; ?>>Active</option>
+                        <option value="Custom Address" <?php if ($customAddress === 'Custom Address') echo 'selected'; ?>>Custom Address</option>
+                        <option value="New" <?php if ($customAddress === 'New') echo 'selected'; ?>>New</option>
+                        <option value="Via" <?php if ($customAddress === 'Via') echo 'selected'; ?>>Via</option>
+                    </select>
+                </div>
+            <?php else: ?>
+                <div class="full-width" style="display: flex; align-items: center;">
+                    <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Custom Address</label>
+                    <input type="checkbox" id="customAddress" name="customAddress" <?php if ($customAddress === 'On') echo 'checked'; ?>>
+                </div>
+            <?php endif; ?>
+
+            <!-- Role Selection for Admin Users -->
+            <?php if ($role == 'Admin'): ?>
+                <div style="display: flex; align-items: center;">
+                    <label for="role" style="margin-right: 10px; white-space: nowrap;">Role:</label>
+                    <select id="role" name="role">
+                        <?php foreach ($available_roles as $available_role): ?>
+                            <option value="<?php echo $available_role; ?>" <?php if ($available_role === $roleField) echo 'selected'; ?>>
+                                <?php echo $available_role; ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            <?php endif; ?>
+
+              <!-- Form Buttons -->
+            <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
+                <button type="submit" name="action" value="load" formnovalidate>Load Operator Data</button>
+            </div>
+            <br>
+            <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
+                <button type="submit" name="action" value="update">Update Operator</button>
+            </div>
+            <br>
+            <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
+                <button type="button" id="fetchButton">Fetch Data from QRZ</button>
+            </div>
+            <br>
+            <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
+                <button type="reset">Clear</button>
+            </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php
+
+$java = "$root/backend/java2.php";
+include($java);
+
+$footerPath = "$root/backend/footer.php";
+include($footerPath);
+?>

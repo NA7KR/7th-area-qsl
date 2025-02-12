@@ -49,7 +49,7 @@ $currentSubmenu = $submenus[$role] ?? $submenus['Admin'];
         $current_page = basename($_SERVER['PHP_SELF']);
         //echo $current_page;
 
-        if ($current_page == 'operator-add.php') {
+        if ($current_page == 'operator-add.php' || $current_page == 'operator-edit.php' ) {
             echo '<link rel="stylesheet" href="/operator-add.css">';
         }
         else 
