@@ -303,6 +303,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <input type="text" id="old_call" name="old_call" value="<?php echo htmlspecialchars($old_call); ?>">
             </div>
 
+            <!-- Born Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="born" style="margin-right: 10px; white-space: nowrap;">Born:</label>
+                <input type="text" id="born" name="born" value="<?php echo htmlspecialchars($born); ?>">
+            </div>
+
             <!-- Address Fields -->
             <div style="display: flex; align-items: center;" class="full-width">
                 <label for="address" style="margin-right: 10px; white-space: nowrap;">Address:</label>
@@ -338,15 +344,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($phone); ?>">
             </div>
 
-            <!-- Born Field -->
-            <div style="display: flex; align-items: center;">
-                <label for="born" style="margin-right: 10px; white-space: nowrap;">Born:</label>
-                <input type="text" id="born" name="born" value="<?php echo htmlspecialchars($born); ?>">
-            </div>
-
             <!-- Status / Custom Address Field -->
             <?php if ($role == 'Admin'): ?>
-                <div class="full-width" style="display: flex; align-items: center;">
+                <div style="display: flex; align-items: center;">
                     <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Status</label>
                     <select name="customAddress" id="customAddress">
                         <option value="Active" <?php if ($customAddress === 'Active') echo 'selected'; ?>>Active</option>
@@ -356,7 +356,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     </select>
                 </div>
             <?php else: ?>
-                <div class="full-width" style="display: flex; align-items: center;">
+                <div div style="display: flex; align-items: center;">
                     <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Custom Address</label>
                     <input type="checkbox" id="customAddress" name="customAddress" <?php if ($customAddress === 'On') echo 'checked'; ?>>
                 </div>

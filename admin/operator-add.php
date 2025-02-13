@@ -116,6 +116,12 @@ ini_set('display_errors', '1');
                 <input type="text" id="old_call" name="old_call">
             </div>
 
+            <!-- Born Field -->
+            <div style="display: flex; align-items: center;">
+                <label for="born" style="margin-right: 10px; white-space: nowrap;">Born:</label>
+                <input type="text" id="born" name="born">
+            </div>
+
             <!-- Address Fields -->
             <div style="display: flex; align-items: center;" class="full-width">
                 <label for="address" style="margin-right: 10px; white-space: nowrap;">Address:</label>
@@ -160,15 +166,9 @@ ini_set('display_errors', '1');
                 <input type="tel" id="phone" name="phone">
             </div>
 
-            <!-- Born Field -->
-            <div style="display: flex; align-items: center;">
-                <label for="born" style="margin-right: 10px; white-space: nowrap;">Born:</label>
-                <input type="text" id="born" name="born">
-            </div>
-
             <!-- Custom Address / Status Field -->
             <?php if ($role == 'Admin'): ?>
-                <div class="full-width" style="display: flex; align-items: center;">
+                <div style="display: flex; align-items: center;">
                     <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Status</label>
                     <select name="customAddress" id="customAddress">
                         <option value="Active">Active</option>
@@ -178,7 +178,7 @@ ini_set('display_errors', '1');
                     </select>
                 </div>
             <?php else: ?>
-                <div class="full-width" style="display: flex; align-items: center;">
+                <div style="display: flex; align-items: center;">
                     <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Custom Address</label>
                     <input type="checkbox" id="customAddress" name="customAddress">
                 </div>
