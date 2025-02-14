@@ -2,7 +2,6 @@
 session_start();
 $root  = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Edit Operator";
-$config = include('config.php');
 include("$root/backend/header.php");
 
 // Ensure the user is logged in.
@@ -39,54 +38,51 @@ $roleField    = "User";
 
 $message = ""; // Message to display to the user
 
-
-
 // --- Process POST data ---
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (isset($_POST['action']) && $_POST['action'] === "load") {
-        // --- LOAD OPERATOR DATA ---
-        // Normalize the callsign (convert to uppercase and trim whitespace).
         $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
         if (empty($callsign)) {
-            $message = "Please enter a callsign to load.";
+            $message = "Callsign is required.";
         } else {
-            // Determine which section the callsign belongs to.
             $selected_letter = getFirstLetterAfterNumber($callsign);
             try {
-                // Verify that the logged‑in user has permission to edit this section.
                 $dbInfo = $config['db'];
                 $pdo = getPDOConnection($dbInfo);
+                
                 if ($pdo) {
-                    $checkSql = "SELECT CASE WHEN EXISTS (
-                                    SELECT 1 FROM `sections` 
-                                    WHERE `call` = :call 
-                                      AND `letter` = :letter 
-                                      AND `status` = 'Edit'
-                                  ) THEN 1 ELSE 0 END AS result;";
-                    $checkStmt = $pdo->prepare($checkSql);
-                    $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
-                    $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
-                    $checkStmt->execute();
-                    $access = $checkStmt->fetch(PDO::FETCH_ASSOC);
-                    if ($access['result'] == 0) {
+                    // Simple direct comparison first
+                    if (strtoupper($user) === strtoupper($callsign)) {
+                        $hasAccess = true;
+                    } else {
+                        // Check section permissions only if not self-editing
+                        $checkSql = "SELECT 1 FROM `sections` 
+                                   WHERE `call` = :call 
+                                   AND `letter` = :letter 
+                                   AND `status` = 'Edit'";
+                        $checkStmt = $pdo->prepare($checkSql);
+                        $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
+                        $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
+                        $checkStmt->execute();
+                        $hasAccess = $checkStmt->fetch(PDO::FETCH_COLUMN) ? true : false;
+                    }
+    
+                    if (!$hasAccess) {
                         $message = "Access denied for user: $user for editing $callsign";
                     } else {
-                        // Use the section-specific database connection.
                         if (isset($config['sections'][$selected_letter])) {
                             $dbInfo = $config['sections'][$selected_letter];
-                        } else {
-                            $message = "Invalid callsign for your access.";
-                        }
-                        if (empty($message)) {
                             $pdo = getPDOConnection($dbInfo);
+                            
                             if ($pdo) {
                                 $sql = "SELECT * FROM tbl_Operator WHERE `Call` = :call LIMIT 1";
                                 $stmt = $pdo->prepare($sql);
                                 $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+                                
                                 if ($stmt->execute()) {
                                     $result = $stmt->fetch(PDO::FETCH_ASSOC);
                                     if ($result) {
-                                        // Pre-fill form variables from the database record.
+                                        // Pre-fill form variables from the database record
                                         $callsign      = $result['Call']       ?? "";
                                         $suffix        = $result['Suffix']     ?? "";
                                         $first_name    = $result['FirstName']  ?? "";
@@ -109,129 +105,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                         $roleField     = $result['Role']       ?? "User";
                                         $message = "Data loaded for callsign: $callsign";
                                     } else {
-                                        $message = "Operator with callsign $callsign not found.";
+                                        $message = "No record found for callsign: $callsign";
                                     }
                                 } else {
-                                    $message = "Error executing load query.";
+                                    $message = "Error executing query";
                                 }
                             }
-                        }
-                    }
-                }
-            } catch (Exception $e) {
-                $message = "Error: " . $e->getMessage();
-            }
-        }
-    } elseif (isset($_POST['action']) && $_POST['action'] === "update") {
-        // --- UPDATE OPERATOR DATA ---
-        $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
-        if (empty($callsign)) {
-            $message = "Callsign is required for update.";
-        } else {
-            $selected_letter = getFirstLetterAfterNumber($callsign);
-            try {
-                $dbInfo = $config['db'];
-                $pdo = getPDOConnection($dbInfo);
-                if ($pdo) {
-                    $checkSql = "SELECT CASE WHEN EXISTS (
-                                    SELECT 1 FROM `sections` 
-                                    WHERE `call` = :call 
-                                      AND `letter` = :letter 
-                                      AND `status` = 'Edit'
-                                  ) THEN 1 ELSE 0 END AS result;";
-                    $checkStmt = $pdo->prepare($checkSql);
-                    $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
-                    $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
-                    $checkStmt->execute();
-                    $access = $checkStmt->fetch(PDO::FETCH_ASSOC);
-                    if ($access['result'] == 0) {
-                        $message = "Access denied for user: $user for editing $callsign";
-                    } else {
-                        if (isset($config['sections'][$selected_letter])) {
-                            $dbInfo = $config['sections'][$selected_letter];
                         } else {
                             $message = "Invalid callsign for your access.";
-                        }
-                        if (empty($message)) {
-                            $pdo = getPDOConnection($dbInfo);
-                            if ($pdo) {
-                                // Sanitize and collect all form fields.
-                                $suffix        = trim($_POST['suffix'] ?? '');
-                                $first_name    = trim($_POST['first_name'] ?? '');
-                                $last_name     = trim($_POST['last_name'] ?? '');
-                                $class         = trim($_POST['class'] ?? '');
-                                $date_start    = trim($_POST['date_start'] ?? '');
-                                $date_exp      = trim($_POST['date_exp'] ?? '');
-                                $new_call      = trim($_POST['new_call'] ?? '');
-                                $old_call      = trim($_POST['old_call'] ?? '');
-                                $address       = trim($_POST['address'] ?? '');
-                                $address2      = trim($_POST['address2'] ?? '');
-                                $city          = trim($_POST['city'] ?? '');
-                                $state         = trim($_POST['state'] ?? '');
-                                $zip           = trim($_POST['zip'] ?? '');
-                                $email         = trim($_POST['email'] ?? '');
-                                $phone         = trim($_POST['phone'] ?? '');
-                                $born          = trim($_POST['born'] ?? '');
-                                $customAddress = trim($_POST['customAddress'] ?? '');
-                                if ($role === 'Admin') {
-                                    $roleField = trim($_POST['role'] ?? 'User');
-                                }
-                                // Optionally adjust the DOB format.
-                                if (!empty($born)) {
-                                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $born)) {
-                                        $born .= " 00:00:00";
-                                    }
-                                }
-                                $updated = date("Y-m-d");
-
-                                // Build the UPDATE query.
-                                $sql = "UPDATE tbl_Operator SET
-                                            `Suffix` = :suffix,
-                                            `FirstName` = :first_name,
-                                            `LastName` = :last_name,
-                                            `Class` = :class,
-                                            `Lic-issued` = :lic_issued,
-                                            `Lic-exp` = :lic_exp,
-                                            `NewCall` = :new_call,
-                                            `Old_call` = :old_call,
-                                            `Address_1` = :address1,
-                                            `Address_2` = :address2,
-                                            `City` = :city,
-                                            `State` = :state,
-                                            `Zip` = :zip,
-                                            `E-Mail` = :email,
-                                            `Phone` = :phone,
-                                            `DOB` = :dob,
-                                            `Status` = :status,
-                                            `Updated` = :updated
-                                        WHERE `Call` = :call";
-                                $stmt = $pdo->prepare($sql);
-                                $stmt->bindValue(':suffix', $suffix, PDO::PARAM_STR);
-                                $stmt->bindValue(':first_name', $first_name, PDO::PARAM_STR);
-                                $stmt->bindValue(':last_name', $last_name, PDO::PARAM_STR);
-                                $stmt->bindValue(':class', $class, PDO::PARAM_STR);
-                                $stmt->bindValue(':lic_issued', $date_start, PDO::PARAM_STR);
-                                $stmt->bindValue(':lic_exp', $date_exp, PDO::PARAM_STR);
-                                $stmt->bindValue(':new_call', $new_call, PDO::PARAM_STR);
-                                $stmt->bindValue(':old_call', $old_call, PDO::PARAM_STR);
-                                $stmt->bindValue(':address1', $address, PDO::PARAM_STR);
-                                $stmt->bindValue(':address2', $address2, PDO::PARAM_STR);
-                                $stmt->bindValue(':city', $city, PDO::PARAM_STR);
-                                $stmt->bindValue(':state', $state, PDO::PARAM_STR);
-                                $stmt->bindValue(':zip', $zip, PDO::PARAM_STR);
-                                $stmt->bindValue(':email', $email, PDO::PARAM_STR);
-                                $stmt->bindValue(':phone', $phone, PDO::PARAM_STR);
-                                $stmt->bindValue(':dob', $born, PDO::PARAM_STR);
-                                $stmt->bindValue(':status', $customAddress, PDO::PARAM_STR);
-                                $stmt->bindValue(':updated', $updated, PDO::PARAM_STR);
-                                $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
-
-                                if ($stmt->execute()) {
-                                    $message = "Record updated successfully for callsign: $callsign";
-                                } else {
-                                    $message = "Error updating record.";
-                                }
-                            }
                         }
                     }
                 }
@@ -240,13 +121,145 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
     }
+elseif (isset($_POST['action']) && $_POST['action'] === "update") {
+    // --- UPDATE OPERATOR DATA ---
+    $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
+    if (empty($callsign)) {
+        $message = "Callsign is required for update.";
+    } else {
+        $selected_letter = getFirstLetterAfterNumber($callsign);
+        try {
+            $dbInfo = $config['db'];
+            $pdo = getPDOConnection($dbInfo);
+            if ($pdo) {
+                // Simple direct comparison first
+                if (strtoupper($user) === strtoupper($callsign)) {
+                    $hasAccess = true;
+                } else {
+                    // Check section permissions only if not self-editing
+                    $checkSql = "SELECT 1 FROM `sections` 
+                               WHERE `call` = :call 
+                               AND `letter` = :letter 
+                               AND `status` = 'Edit'";
+                    $checkStmt = $pdo->prepare($checkSql);
+                    $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
+                    $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
+                    $checkStmt->execute();
+                    $hasAccess = $checkStmt->fetch(PDO::FETCH_COLUMN) ? true : false;
+                }
+
+                if (!$hasAccess) {
+                    $message = "Access denied for user: $user for editing $callsign";
+                } else {
+                    if (isset($config['sections'][$selected_letter])) {
+                        $dbInfo = $config['sections'][$selected_letter];
+                        $pdo = getPDOConnection($dbInfo);
+                        if ($pdo) {
+                            // Sanitize and collect all form fields
+                            $suffix        = trim($_POST['suffix'] ?? '');
+                            $first_name    = trim($_POST['first_name'] ?? '');
+                            $last_name     = trim($_POST['last_name'] ?? '');
+                            $class         = trim($_POST['class'] ?? '');
+                            $date_start    = trim($_POST['date_start'] ?? '');
+                            $date_exp      = trim($_POST['date_exp'] ?? '');
+                            $new_call      = trim($_POST['new_call'] ?? '');
+                            $old_call      = trim($_POST['old_call'] ?? '');
+                            $address       = trim($_POST['address'] ?? '');
+                            $address2      = trim($_POST['address2'] ?? '');
+                            $city          = trim($_POST['city'] ?? '');
+                            $state         = trim($_POST['state'] ?? '');
+                            $zip           = trim($_POST['zip'] ?? '');
+                            $email         = trim($_POST['email'] ?? '');
+                            $phone         = trim($_POST['phone'] ?? '');
+                            $dob          = trim($_POST['born'] ?? '');
+                               // Convert date formats for the 'born' field if needed
+                            if ($dob !== null) {
+                                if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $dob)) { // YYYY-MM-DD HH:MM:SS format
+                                    $born = $dob;
+                                } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) { // YYYY-MM-DD format
+                                    $born = $dob . ' 00:00:00';
+                                } elseif (preg_match('/^\d{4}$/', $dob)) { // YYYY format (from QRZ)
+                                    $born = $dob . '-01-01 00:00:00';
+                                } else {
+                                    $born = null; // Invalid format
+                                }
+                            } else {
+                            $customAddress = trim($_POST['customAddress'] ?? '');
+                            if ($role === 'Admin') {
+                                $roleField = trim($_POST['role'] ?? 'User');
+                            }
+                        }
+                            $updated = date("Y-m-d");
+
+                            // Build and execute the UPDATE query
+                            $sql = "UPDATE tbl_Operator SET
+                                    `Suffix` = :suffix,
+                                    `FirstName` = :first_name,
+                                    `LastName` = :last_name,
+                                    `Class` = :class,
+                                    `Lic-issued` = :lic_issued,
+                                    `Lic-exp` = :lic_exp,
+                                    `NewCall` = :new_call,
+                                    `Old_call` = :old_call,
+                                    `Address_1` = :address1,
+                                    `Address_2` = :address2,
+                                    `City` = :city,
+                                    `State` = :state,
+                                    `Zip` = :zip,
+                                    `E-Mail` = :email,
+                                    `Phone` = :phone,
+                                    `DOB` = :dob,
+                                    `Status` = :status,
+                                    `Updated` = :updated
+                                WHERE `Call` = :call";
+
+                            $stmt = $pdo->prepare($sql);
+                            $stmt->bindValue(':suffix', $suffix, PDO::PARAM_STR);
+                            $stmt->bindValue(':first_name', $first_name, PDO::PARAM_STR);
+                            $stmt->bindValue(':last_name', $last_name, PDO::PARAM_STR);
+                            $stmt->bindValue(':class', $class, PDO::PARAM_STR);
+                            $stmt->bindValue(':lic_issued', $date_start, PDO::PARAM_STR);
+                            $stmt->bindValue(':lic_exp', $date_exp, PDO::PARAM_STR);
+                            $stmt->bindValue(':new_call', $new_call, PDO::PARAM_STR);
+                            $stmt->bindValue(':old_call', $old_call, PDO::PARAM_STR);
+                            $stmt->bindValue(':address1', $address, PDO::PARAM_STR);
+                            $stmt->bindValue(':address2', $address2, PDO::PARAM_STR);
+                            $stmt->bindValue(':city', $city, PDO::PARAM_STR);
+                            $stmt->bindValue(':state', $state, PDO::PARAM_STR);
+                            $stmt->bindValue(':zip', $zip, PDO::PARAM_STR);
+                            $stmt->bindValue(':email', $email, PDO::PARAM_STR);
+                            $stmt->bindValue(':phone', $phone, PDO::PARAM_STR);
+                            $stmt->bindValue(':dob', $born, PDO::PARAM_STR);
+                            $stmt->bindValue(':status', $customAddress, PDO::PARAM_STR);
+                            $stmt->bindValue(':updated', $updated, PDO::PARAM_STR);
+                            $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+
+                            if ($stmt->execute()) {
+                                $message = "Record updated successfully for callsign: $callsign";
+                            } else {
+                                $message = "Error updating record.";
+                            }
+                        }
+                    } else {
+                        $message = "Invalid callsign for your access.";
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            $message = "Error: " . $e->getMessage();
+        }
+    }
+}
 }
 ?>
-<div class="center-content"></div>
+<div class="center-content">
+    <?php if ($role == 'User'): ?>
+        <img src="/7thArea.png" alt="7th Area" />
+    <?php endif; ?>
+</div>
 <div id="operator-add-container">
-    <h1 class="center-content">Add New User</h1>
-    <div id="messageDiv"></div>
-    <?php if (!empty($message)) { echo "<div id='messageDiv'>" . htmlspecialchars($message) . "</div>"; } ?>
+    <h1 class="center-content">Edit Operator</h1>
+    <div id="messageDiv" class="center-content"><?php if (!empty($message)) { echo htmlspecialchars($message); } ?></div>
     <div class="form-wrapper">
         <form method="post" action="operator-edit.php" id="dataForm">
             <!-- Callsign Field (remains required) -->
@@ -332,7 +345,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <label for="zip" style="margin-right: 10px; white-space: nowrap;">Zip:</label>
                 <input type="text" id="zip" name="zip" value="<?php echo htmlspecialchars($zip); ?>">
             </div>
-       
 
             <!-- Email and Phone Fields -->
             <div style="display: flex; align-items: center;">
@@ -356,7 +368,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     </select>
                 </div>
             <?php else: ?>
-                <div div style="display: flex; align-items: center;">
+                <div style="display: flex; align-items: center;">
                     <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Custom Address</label>
                     <input type="checkbox" id="customAddress" name="customAddress" <?php if ($customAddress === 'On') echo 'checked'; ?>>
                 </div>
@@ -399,7 +411,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
 <?php
 
-$java = "$root/backend/java2.php";
+$java = "$root/backend/java3.php";
 include($java);
 
 $footerPath = "$root/backend/footer.php";

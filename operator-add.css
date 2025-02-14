@@ -254,3 +254,21 @@ form input, form select {
     0%, 100% { color: red; }
     50% { color: black; }
   }
+
+  /* Centered content styling */
+
+
+.center-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #f8f9fa;
+    text-align: center;
+    padding: 20px;
+}
+
+.img-526x196 {
+    width: 526px;
+    height: 196px;
+}

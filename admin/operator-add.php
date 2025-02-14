@@ -21,7 +21,7 @@ $callExists = false;
 $msgecho = "";
 $root  = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Page to Add Operator ";
-$config = include('config.php');
+//$config = include('../config.php');
 include("$root/backend/header.php");
 
 $selectedLetter = null;
@@ -152,9 +152,8 @@ ini_set('display_errors', '1');
             <div style="display: flex; align-items: center;">
                 <label for="country" style="margin-right: 10px; white-space: nowrap;">Country:</label>
                 <input type="text" id="country" name="country">
-            </div>
+            </div> -->
             
-        
             <!-- Email and Phone Fields -->
             <div style="display: flex; align-items: center;">
                 <label for="email" style="margin-right: 10px; white-space: nowrap;">Email:</label>
@@ -287,13 +286,11 @@ ini_set('display_errors', '1');
             if ($access['result'] == 0) {   
                 $msgecho = "Access denied for user: $user and Role: $role adding  $callsign";
                 exit;
-            } 
-                     
+            }             
         }
         catch (Exception $e) {
             $msgecho = "Error: " . $e->getMessage();
         }
-
         // 
         // If the selected letter returns an error, exit immediately
         if (str_starts_with($selected_letter, "Error:")) {
@@ -305,13 +302,11 @@ ini_set('display_errors', '1');
                 $msgecho = "Invalid Call for your access.";
                 exit;
             }
-
+            $resultMessage = insertUserAndSection( $callsign, $role, $email, $selected_letter, $status);
+            echo $resultMessage;
             try {
                 $pdo = getPDOConnection($dbInfo);
-
                 if ($pdo) {
-                    
-
                     // Check if the callsign already exists
                     $checkSql  = "SELECT 1 FROM tbl_Operator WHERE `Call` = :call";
                     $checkStmt = $pdo->prepare($checkSql);
@@ -410,7 +405,6 @@ ini_set('display_errors', '1');
                         } else {
                             echo "Error preparing statement: " . $pdo->errorInfo()[2];
                         }
-                    
                     }
                 else {
                     $msgecho = "User $callsign is already in the database.";
@@ -428,7 +422,6 @@ ini_set('display_errors', '1');
     }
     ?>
 </div>
-
 <?php
 // Include Java file (do not change to avoid breaking functionality)
 $java = "$root/backend/java2.php";
@@ -436,5 +429,5 @@ include($java);
 
 // Include footer
 $footerPath = "$root/backend/footer.php";
-include($footerPath);
 
+include($footerPath);

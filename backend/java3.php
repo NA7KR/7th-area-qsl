@@ -1,18 +1,19 @@
 <?php
-?>yyyy
+?>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const submitButton = document.getElementById('submitButton');
         const fetchButton = document.getElementById('fetchButton');
-        const clearButton = document.getElementById('clearButton');
+        const clearButton = document.querySelector('button[type="reset"]');
         const dataForm = document.getElementById('dataForm');
         const customAddressSelect = document.getElementById('customAddress');
-        const callExistsMessage = document.getElementById('callExistsMessage');
+        const messageDiv = document.getElementById('messageDiv');
         const message = <?php echo json_encode($msgecho); ?>;
-    // Now you can use the message variable in JavaScript
-    console.log(message);
-    // To display it on the page:
-    document.getElementById('messageDiv').innerHTML = message;
+
+        // Display the message if available
+        if (message) {
+            displayMessage(message);
+        }
 
         function fetchQRZData() {
             const callsign = document.getElementById('callsign').value;
@@ -141,8 +142,7 @@
                         'A': 'Advanced',
                         'C': 'Club'
                     };
-                    document.getElementById('class').value = classMapping[classNode.textContent.trim()] || classNode
-                        .textContent.trim();
+                    document.getElementById('class').value = classMapping[classNode.textContent.trim()] || classNode.textContent.trim();
                 }
 
                 const emailNode = xmlDoc.getElementsByTagName("email")[0];
@@ -154,7 +154,6 @@
                 if (bornNode) {
                     document.getElementById('born').value = bornNode.textContent.trim();
                 }
-
                 // After populating fields, ALWAYS enable the submit button
                 submitButton.disabled = false;
                 submitButton.classList.remove('disabled-button');
@@ -166,18 +165,7 @@
         }
 
         function updateButtonStates() {
-            if (customAddressSelect.value === 'Custom Address') {
-                submitButton.disabled = false;
-                submitButton.classList.remove('disabled-button');
-            } else {
-                submitButton.disabled = true;
-                submitButton.classList.add('disabled-button');
-            }
-        }
-
-        // Modify the custom address select listener
-        customAddressSelect.addEventListener('change', function() {
-            if (customAddressSelect.value === 'Custom Address') {
+            if (customAddressSelect && customAddressSelect.value === 'Custom Address') {
                 submitButton.disabled = false;
                 submitButton.classList.remove('disabled-button');
                 fetchButton.disabled = true;
@@ -191,38 +179,26 @@
         }
 
         function displayMessage(message) {
-            const callExistsMessage = document.getElementById('callExistsMessage');
-            callExistsMessage.innerHTML = message;
-            callExistsMessage.style.display = 'block';
+            if (messageDiv) {
+                messageDiv.textContent = message;
+                messageDiv.style.display = 'block';
+                messageDiv.classList.add('flash'); // Start the flash animation
+            }
         }
 
-        function displayMessage(message) {
-      const messageDiv = document.getElementById('messageDiv');
-      if (messageDiv) {
-        messageDiv.textContent = message;
-        messageDiv.style.display = 'block';
-        messageDiv.classList.add('flash'); // Start the flash animation
-      }
-    
-    }
         customAddressSelect.addEventListener('change', updateButtonStates);
         fetchButton.addEventListener('click', fetchQRZData);
         clearButton.addEventListener('click', function () {
             dataForm.reset();
-            customAddressSelect.value = 'Active';
+            messageDiv.innerHTML = '';
+            // Reset the custom address select if needed
+            if (customAddressSelect) {
+                customAddressSelect.value = 'Active';
+            }
+            // Reset button states
             updateButtonStates();
         });
 
-        fetchButton.addEventListener('click', function() {
-            // Simulate fetching data from QRZ
-            setTimeout(function() {
-                // Enable the submit button after fetching data
-                submitButton.disabled = false;
-            }, 1000); // Simulate a delay for fetching data
-        });
-
-        dataFetched = true;
         updateButtonStates();
-
     });
 </script>
