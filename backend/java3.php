@@ -198,7 +198,6 @@
             // Reset button states
             updateButtonStates();
         });
-
         updateButtonStates();
     });
 </script>

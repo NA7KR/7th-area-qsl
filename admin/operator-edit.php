@@ -394,7 +394,7 @@ elseif (isset($_POST['action']) && $_POST['action'] === "update") {
             </div>
             <br>
             <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
-                <button type="submit" name="action" value="update">Update Operator</button>
+                <button type="submit" name="action" value="update" id="submitButton">Update Operator</button>
             </div>
             <br>
             <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
