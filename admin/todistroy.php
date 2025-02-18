@@ -206,8 +206,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['letter'])) {
         } else {
             echo "Error: tbl_Operator data is empty or could not be fetched.";
         }
-        $netBalanceThreshold = $config['unpaid_threshold'] ?? 0.88;  // Default to 0.88 if not set
-        $statusList = ['Active',  'Active_DIFF_Address']; // Set desired status filters
+        $netBalanceThreshold = 100;
+        $statusList = ['License Expired','SILENT KEY' , 'DNU-DESTROY', 'Inactive']; // Set desired status filters
 
         $redData = fetchFilteredData($pdo, $netBalanceThreshold, $statusList);
         // ------------------------------------------------

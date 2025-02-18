@@ -80,10 +80,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <thead>
                 <tr>
                 <th>Call</th>
-                   <!-- <th>Cards Received</th>
-                    <th>Cards Returned</th>
-                    <th>Money Received</th>
-                    <th>Paid</th> -->
                     <th>Status</th>
                     <th>Remarks</th>
                     <th>Lic-exp</th>
@@ -91,27 +87,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </thead>
             <tbody>
                 <?php foreach ($dataRows as $row): ?>
-                    <?php if ($row['Status'] !== 'Active'): ?>
+                    <?php if ($row['Status'] !== 'Active' && $row['Status'] !== 'Active_DIFF_Address'): ?>
                     <tr>
                     
                         <td><?= htmlspecialchars($row['Call']) ?></td>
-                       <!-- <td><?= htmlspecialchars($row['CardsReceived']) ?></td>
-                        <td><?= htmlspecialchars($row['CardsReturned']) ?></td>
-                        <td><?= htmlspecialchars($row['MoneyReceived']) ?></td> 
-                        <td><?= htmlspecialchars($row['Paid']) ?></td> -->
                         <td><?= htmlspecialchars($row['Status'] ?? '') ?></td>
                         <td><?= htmlspecialchars($row['Remarks'] ?? '') ?></td>
                         <td><?= htmlspecialchars(date('Y-m-d', strtotime($row['Lic-exp'] ?? ''))) ?></td>
                     </tr>
                     <?php endif; ?>
                     <tr>
-
                     </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-    <?php else: ?>
-        
+    <?php else: ?>       
     <?php endif; ?>
 </div>
 

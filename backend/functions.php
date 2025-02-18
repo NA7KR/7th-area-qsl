@@ -16,6 +16,11 @@ limitations under the License.
  */
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
 $config = include($root . '/config.php');
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+include_once("$root/backend/PHPMailer.php");
+
   
 /**
  * Create a PDO connection using config array: ['host','dbname','username','password'].
@@ -241,6 +246,10 @@ function sanitizeEmail($email)
  */
 function sendEmail($to, $call, $cardsOnHand, $emailConfig)
 {
+    $root = realpath($_SERVER["DOCUMENT_ROOT"]);
+    include_once("$root/backend/PHPMailer.php");
+    require_once "$root/backend/SMTP.php";
+    require_once "$root/backend/Exception.php";
     $mail = new PHPMailer(true);
     $debugEmail = $emailConfig['debug_email'];
 
@@ -282,7 +291,7 @@ function sendEmail($to, $call, $cardsOnHand, $emailConfig)
             <a href='https://wvdxc.org/qsl-bureau-faq'>QSL Bureau FAQ</a>.<br><br>
             Best regards,<br>
             {$emailConfig['myname']} {$emailConfig['mycall']}<br>
-            ARRL 7th District QSL Sorter – {$emailConfig['sections']}<br>
+            ARRL 7th District QSL Sorter {$emailConfig['sections']}<br>
             {$emailConfig['from']}
         ";
 
@@ -771,6 +780,109 @@ function insertUserAndSection( $callsign, $role, $email, $letter, $sectionStatus
         }
         error_log("An error occurred: " . $e->getMessage());
         return "An error occurred: " . $e->getMessage();
+    }
+}
+
+
+function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active', 'License Expired']) {
+    // Dynamically create a parameterized IN clause for statuses
+    $statusPlaceholders = implode(',', array_fill(0, count($statusFilter), '?'));
+
+    $query = "
+        SELECT 
+            o.`Call`,
+            o.`FirstName`,
+            o.`LastName`,
+            o.`Mail-Inst`,
+            o.`E-Mail` AS Email,
+            o.`Address_1` AS Address,
+            o.`City`,
+            o.`State`,
+            o.`Zip`,
+            o.`Status`,
+            COALESCE(cr.CardsReceived, 0) AS CardsReceived,
+            COALESCE(cm.CardsMailed, 0) AS CardsMailed,
+            COALESCE(crt.CardsReturned, 0) AS CardsReturned,
+            COALESCE(cm.TotalCost, 0) AS TotalCost,
+            COALESCE(mr.MoneyReceived, 0) AS MoneyReceived,
+            (COALESCE(cr.CardsReceived, 0) - COALESCE(cm.CardsMailed, 0) - COALESCE(crt.CardsReturned, 0)) AS CardsOnHand,
+            (COALESCE(mr.MoneyReceived, 0) - COALESCE(cm.TotalCost, 0)) AS NetBalance
+        FROM tbl_Operator o
+        LEFT JOIN (
+            SELECT `Call`, SUM(`CardsReceived`) AS CardsReceived
+            FROM tbl_CardRec
+            GROUP BY `Call`
+        ) cr ON o.`Call` = cr.`Call`
+        LEFT JOIN (
+            SELECT `Call`, SUM(`CardsMailed`) AS CardsMailed, SUM(`Total Cost`) AS TotalCost
+            FROM tbl_CardM
+            GROUP BY `Call`
+        ) cm ON o.`Call` = cm.`Call`
+        LEFT JOIN (
+            SELECT `Call`, SUM(`CardsReturned`) AS CardsReturned
+            FROM tbl_CardRet
+            GROUP BY `Call`
+        ) crt ON o.`Call` = crt.`Call`
+        LEFT JOIN (
+            SELECT `Call`, SUM(`MoneyReceived`) AS MoneyReceived
+            FROM tbl_MoneyR
+            GROUP BY `Call`
+        ) mr ON o.`Call` = mr.`Call`
+        WHERE o.`Status` IN ($statusPlaceholders)
+        HAVING CardsOnHand > 0 AND NetBalance < ?;
+    ";
+
+    $stmt = $pdo->prepare($query);
+
+    // Bind dynamic status values
+    foreach ($statusFilter as $key => $status) {
+        $stmt->bindValue($key + 1, $status, PDO::PARAM_STR);
+    }
+    // Bind NetBalance threshold as the last parameter
+    $stmt->bindValue(count($statusFilter) + 1, $netBalanceMin, PDO::PARAM_STR);
+
+    $stmt->execute();
+    
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getTotalCardsOnHand($pdo) {
+    $sql = "
+        SELECT 
+            SUM(COALESCE(cr.CardsReceived, 0) - COALESCE(cm.CardsMailed, 0) - COALESCE(crt.CardsReturned, 0)) AS TotalCardsOnHand
+        FROM tbl_Operator o
+        LEFT JOIN (
+            SELECT `Call`, SUM(`CardsReceived`) AS CardsReceived
+            FROM tbl_CardRec
+            GROUP BY `Call`
+        ) cr ON o.`Call` = cr.`Call`
+        LEFT JOIN (
+            SELECT `Call`, SUM(`CardsMailed`) AS CardsMailed, SUM(`Total Cost`) AS TotalCost
+            FROM tbl_CardM
+            GROUP BY `Call`
+        ) cm ON o.`Call` = cm.`Call`
+        LEFT JOIN (
+            SELECT `Call`, SUM(`CardsReturned`) AS CardsReturned
+            FROM tbl_CardRet
+            GROUP BY `Call`
+        ) crt ON o.`Call` = crt.`Call`
+        LEFT JOIN (
+            SELECT `Call`, SUM(`MoneyReceived`) AS MoneyReceived
+            FROM tbl_MoneyR
+            GROUP BY `Call`
+        ) mr ON o.`Call` = mr.`Call`
+        WHERE o.`Status` IN ('Active')
+        HAVING TotalCardsOnHand > 0;
+    ";
+
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['TotalCardsOnHand'] ?? 0;
+    } catch (PDOException $e) {
+        error_log("Error fetching total cards on hand: " . $e->getMessage());
+        return 0;
     }
 }
 
