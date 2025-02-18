@@ -715,7 +715,7 @@ function getFirstLetterAfterNumber($call) {
  *
  * @return string A message indicating success or describing the error.
  */
-function insertUserAndSection( $callsign, $role, $email, $letter, $sectionStatus) {
+function upsertUserAndSection($callsign, $role, $email, $letter, $sectionStatus) {
     try {
         // Get the PDO connection
         $config = include('../config.php');
@@ -725,50 +725,72 @@ function insertUserAndSection( $callsign, $role, $email, $letter, $sectionStatus
         // Start a transaction
         $pdo->beginTransaction();
 
-        // Check if the callsign already exists in 'users'
-        $checkSql  = "SELECT 1 FROM users WHERE `username` = :call";
+        // Check if the user exists
+        $checkSql  = "SELECT id FROM users WHERE `username` = :call";
         $checkStmt = $pdo->prepare($checkSql);
         $checkStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
         $checkStmt->execute();
-        $result = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
+        $user = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
-        if (count($result) == 0) {
-            // Insert into users
+        if ($user) {
+            // User exists, update their information
+            $sql1 = "UPDATE `users` SET `role` = :role, `email` = :email WHERE `username` = :call";
+            $stmt1 = $pdo->prepare($sql1);
+            $stmt1->bindValue(':call', $callsign, PDO::PARAM_STR);
+            $stmt1->bindValue(':role', $role, PDO::PARAM_STR);
+            $stmt1->bindValue(':email', $email, PDO::PARAM_STR);
+            if (!$stmt1->execute()) {
+                throw new Exception("Error updating user: " . implode(", ", $stmt1->errorInfo()));
+            }
+        } else {
+            // Insert new user
             $sql1 = "INSERT INTO `users` (`username`, `role`, `email`)
                      VALUES (:call, :role, :email)";
             $stmt1 = $pdo->prepare($sql1);
             $stmt1->bindValue(':call', $callsign, PDO::PARAM_STR);
             $stmt1->bindValue(':role', $role, PDO::PARAM_STR);
             $stmt1->bindValue(':email', $email, PDO::PARAM_STR);
-            
             if (!$stmt1->execute()) {
-                // If the first insert fails, throw an exception to trigger rollback
                 throw new Exception("Error inserting into users: " . implode(", ", $stmt1->errorInfo()));
             }
+        }
 
-            // Insert into sections
-            $sql2 = "INSERT INTO `sections` (`id`, `letter`, `call`, `status`)
-                     VALUES (NULL, :letter, :call, :status)";
+        // Check if a section record exists for this callsign
+        $checkSectionSql = "SELECT id FROM sections WHERE `call` = :call";
+        $checkSectionStmt = $pdo->prepare($checkSectionSql);
+        $checkSectionStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+        $checkSectionStmt->execute();
+        $section = $checkSectionStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($section) {
+            // Update the section entry
+            $sql2 = "UPDATE `sections` SET `letter` = :letter, `status` = :status WHERE `call` = :call";
             $stmt2 = $pdo->prepare($sql2);
             $stmt2->bindValue(':letter', $letter, PDO::PARAM_STR);
             $stmt2->bindValue(':call', $callsign, PDO::PARAM_STR);
             $stmt2->bindValue(':status', $sectionStatus, PDO::PARAM_STR);
-            
             if (!$stmt2->execute()) {
-                // If the second insert fails, throw an exception to trigger rollback
+                throw new Exception("Error updating sections: " . implode(", ", $stmt2->errorInfo()));
+            }
+        } else {
+            // Insert a new section record
+            $sql2 = "INSERT INTO `sections` (`letter`, `call`, `status`)
+                     VALUES (:letter, :call, :status)";
+            $stmt2 = $pdo->prepare($sql2);
+            $stmt2->bindValue(':letter', $letter, PDO::PARAM_STR);
+            $stmt2->bindValue(':call', $callsign, PDO::PARAM_STR);
+            $stmt2->bindValue(':status', $sectionStatus, PDO::PARAM_STR);
+            if (!$stmt2->execute()) {
                 throw new Exception("Error inserting into sections: " . implode(", ", $stmt2->errorInfo()));
             }
-
-            // Both inserts succeeded; commit the transaction
-            $pdo->commit();
-            return "Both records created successfully";
-        } else {
-            // Callsign already exists; roll back the transaction and return a message
-            $pdo->rollBack();
-            return "User $callsign is already in the database.";
         }
+
+        // Commit the transaction
+        $pdo->commit();
+        return "User and section record updated or inserted successfully";
+
     } catch (PDOException $e) {
-        // Roll back the transaction if something fails
+        // Rollback on error
         if ($pdo && $pdo->inTransaction()) {
             $pdo->rollBack();
         }
@@ -782,6 +804,7 @@ function insertUserAndSection( $callsign, $role, $email, $letter, $sectionStatus
         return "An error occurred: " . $e->getMessage();
     }
 }
+
 
 
 function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active', 'License Expired']) {

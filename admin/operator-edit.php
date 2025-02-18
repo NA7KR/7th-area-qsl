@@ -270,6 +270,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                         $stmt->bindValue(':status', $customAddress, PDO::PARAM_STR);
                                         $stmt->bindValue(':updated', $updated, PDO::PARAM_STR);
                                         $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+                                        if ($role === 'Admin') {
+                                            $sectionStatus = 'Edit';
+                                       }
+                                       elseif ($role === 'Ops') {
+                                           $sectionStatus = 'View';
+                                       }
+                                       else {
+                                           $sectionStatus = 'View';
+                                       }
+                                       upsertUserAndSection( $callsign, $role, $email, $selected_letter, $sectionStatus);
 
                                         if ($stmt->execute()) {
                                             $message = "Record updated successfully for callsign: $callsign";

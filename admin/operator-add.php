@@ -1,185 +1,336 @@
 <?php
-/*
-Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 session_start();
-#print_r($_POST);
-$callExists = false;
-$msgecho = "";
 $root  = realpath($_SERVER["DOCUMENT_ROOT"]);
-$title = "Page to Add Operator ";
-//$config = include('../config.php');
+$title = "Edit Operator";
 include("$root/backend/header.php");
 
-$selectedLetter = null;
-
-// Ensure the user is logged in
+// Ensure the user is logged in.
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
 }
+
 $role = $_SESSION['role'] ?? 'Admin';
-
-// Retrieve the selected letter from session, if available
-$selectedLetter = $_SESSION['selected_letter'] ?? '';
-
-// Handle the letter selection form submission
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['letter_select_form']) && $_POST['letter_select_form'] == 1) {
-    if (isset($_POST['letter'])) {
-        $_SESSION['selected_letter'] = $_POST['letter'];
-        // Redirect to prevent form resubmission on refresh
-        header("Location: " . $_SERVER['PHP_SELF']);
-        exit;
-    }
-}
-
-$isLoggedIn      = isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true;
-$role            = $_SESSION['role'] ?? 'Admin';
 $user = strtoupper($_SESSION['username'] ?? 'No Call');
 $available_roles = ['User', 'Admin', 'Ops'];
 
-// Enable error reporting for debugging
-ini_set('error_reporting', E_ALL);
-ini_set('display_errors', '1');
-?>
-<div class="center-content"></div>
-<div id="operator-add-container">
-    <h1 class="center-content">Add New User</h1>
+// --- Default values for the form fields ---
+$callsign     = (string)($callsign ?? '');
+$suffix       = (string)($suffix ?? '');
+$first_name   = (string)($first_name ?? '');
+$last_name    = (string)($last_name ?? '');
+$class        = (string)($class ?? '');
+$date_start   = (string)($date_start ?? '');
+$date_exp     = (string)($date_exp ?? '');
+$new_call     = (string)($new_call ?? '');
+$old_call     = (string)($old_call ?? '');
+$address      = (string)($address ?? '');
+$address2     = (string)($address2 ?? '');
+$city         = (string)($city ?? '');
+$state        = (string)($state ?? '');
+$zip          = (string)($zip ?? '');
+$country      = (string)($country ?? '');
+$email        = (string)($email ?? '');
+$phone        = (string)($phone ?? '');
+$born         = (string)($born ?? '');
+$customAddress= (string)($customAddress ?? '');
+$roleField    = (string)($roleField ?? 'User');
 
-    <div id="messageDiv"></div>
+$message = ""; // Message to display to the user
+
+// --- Process POST data ---
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
+    
+    if (empty($callsign)) {
+        $message = "Callsign is required.";
+    } else {
+        switch($_POST['action']) {
+            case 'fetch_qrz':
+                if ($_POST['customAddress'] === 'Custom Address') {
+                    $message = "Cannot fetch QRZ data when Custom Address is selected";
+                } else {
+                    require_once("$root/backend/qrz_fetch.php");
+                    $result = fetchQRZData($callsign, $config);
+                    
+                    if (isset($result['error'])) {
+                        $message = "QRZ Error: " . $result['error'];
+                    } else {
+                        // Populate form variables
+                        foreach ($result as $key => $value) {
+                            $$key = $value;
+                        }
+                        $message = "Data retrieved from QRZ for $callsign";
+                    }
+                }
+                break;
+
+            case 'clear':
+                // Reset all variables to default
+                $suffix = $first_name = $last_name = $class = "";
+                $date_start = $date_exp = $new_call = $old_call = "";
+                $address = $address2 = $city = $state = $zip = "";
+                $email = $phone = $born = "";
+                $customAddress = "Active";
+                $message = "Form cleared";
+                break;
+
+        
+
+            case 'update':
+                // --- UPDATE OPERATOR DATA ---
+                $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
+                if (empty($callsign)) {
+                    $message = "Callsign is required for adding.";
+                } else {
+                    $selected_letter = getFirstLetterAfterNumber($callsign);
+                    try {
+                        $dbInfo = $config['db'];
+                        $pdo = getPDOConnection($dbInfo);
+                        if ($pdo) {
+                            // Simple direct comparison first
+                            if (strtoupper($user) === strtoupper($callsign)) {
+                                $hasAccess = true;
+                            } else {
+                                // Check section permissions only if not self-editing
+                                $checkSql = "SELECT 1 FROM `sections` 
+                                           WHERE `call` = :call 
+                                           AND `letter` = :letter 
+                                           AND `status` = 'Edit'";
+                                $checkStmt = $pdo->prepare($checkSql);
+                                $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
+                                $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
+                                $checkStmt->execute();
+                                $hasAccess = $checkStmt->fetch(PDO::FETCH_COLUMN) ? true : false;
+                            }
+
+                            if (!$hasAccess) {
+                                $message = "Access denied for user: $user for editing $callsign";
+                            } else {
+                                if (isset($config['sections'][$selected_letter])) {
+                                    $dbInfo = $config['sections'][$selected_letter];
+                                    $pdo = getPDOConnection($dbInfo);
+                                    if ($pdo) {
+                                        // Sanitize and collect all form fields
+                                        $suffix        = trim($_POST['suffix'] ?? '');
+                                        $first_name    = trim($_POST['first_name'] ?? '');
+                                        $last_name     = trim($_POST['last_name'] ?? '');
+                                        $class         = trim($_POST['class'] ?? '');
+                                        $date_start    = trim($_POST['date_start'] ?? '');
+                                        $date_exp      = trim($_POST['date_exp'] ?? '');
+                                        $new_call      = trim($_POST['new_call'] ?? '');
+                                        $old_call      = trim($_POST['old_call'] ?? '');
+                                        $address       = trim($_POST['address'] ?? '');
+                                        $address2      = trim($_POST['address2'] ?? '');
+                                        $city          = trim($_POST['city'] ?? '');
+                                        $state         = trim($_POST['state'] ?? '');
+                                        $zip           = trim($_POST['zip'] ?? '');
+                                        $email         = trim($_POST['email'] ?? '');
+                                        $phone         = trim($_POST['phone'] ?? '');
+                                        $dob          = trim($_POST['born'] ?? '');
+                                        $customAddress = trim($_POST['customAddress'] ?? 'Active');  // Use consistent field name
+                                           // Convert date formats for the 'born' field if needed
+                                        if ($dob !== null) {
+                                            if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $dob)) { // YYYY-MM-DD HH:MM:SS format
+                                                $born = $dob;
+                                            } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) { // YYYY-MM-DD format
+                                                $born = $dob . ' 00:00:00';
+                                            } elseif (preg_match('/^\d{4}$/', $dob)) { // YYYY format (from QRZ)
+                                                $born = $dob . '-01-01 00:00:00';
+                                            } else {
+                                                $born = null; // Invalid format
+                                            }
+                                        } else {
+                                        $customAddress = trim($_POST['customAddress'] ?? '');
+                                        if ($role === 'Admin') {
+                                            $roleField = trim($_POST['role'] ?? 'User');
+                                        }
+                                    }
+                                        $updated = date("Y-m-d");
+
+                                        // Build and execute the UPDATE query
+                                        $sql = "INSERT INTO tbl_Operator (
+                                            `Call`, `Suffix`, `FirstName`, `LastName`, `Class`, 
+                                            `Lic-issued`, `Lic-exp`, `NewCall`, `Old_call`,
+                                            `Address_1`, `Address_2`, `City`, `State`, `Zip`,
+                                            `E-Mail`, `Phone`, `DOB`, `Status`, `Updated`
+                                        ) VALUES (
+                                            :call, :suffix, :first_name, :last_name, :class,
+                                            :lic_issued, :lic_exp, :new_call, :old_call,
+                                            :address1, :address2, :city, :state, :zip,
+                                            :email, :phone, :dob, :status, :updated
+                                        )";
+
+                                        $stmt = $pdo->prepare($sql);
+                                        $stmt->bindValue(':suffix', $suffix, PDO::PARAM_STR);
+                                        $stmt->bindValue(':first_name', $first_name, PDO::PARAM_STR);
+                                        $stmt->bindValue(':last_name', $last_name, PDO::PARAM_STR);
+                                        $stmt->bindValue(':class', $class, PDO::PARAM_STR);
+                                        $stmt->bindValue(':lic_issued', $date_start, PDO::PARAM_STR);
+                                        $stmt->bindValue(':lic_exp', $date_exp, PDO::PARAM_STR);
+                                        $stmt->bindValue(':new_call', $new_call, PDO::PARAM_STR);
+                                        $stmt->bindValue(':old_call', $old_call, PDO::PARAM_STR);
+                                        $stmt->bindValue(':address1', $address, PDO::PARAM_STR);
+                                        $stmt->bindValue(':address2', $address2, PDO::PARAM_STR);
+                                        $stmt->bindValue(':city', $city, PDO::PARAM_STR);
+                                        $stmt->bindValue(':state', $state, PDO::PARAM_STR);
+                                        $stmt->bindValue(':zip', $zip, PDO::PARAM_STR);
+                                        $stmt->bindValue(':email', $email, PDO::PARAM_STR);
+                                        $stmt->bindValue(':phone', $phone, PDO::PARAM_STR);
+                                        $stmt->bindValue(':dob', $born, PDO::PARAM_STR);
+                                        $stmt->bindValue(':status', $customAddress, PDO::PARAM_STR);
+                                        $stmt->bindValue(':updated', $updated, PDO::PARAM_STR);
+                                        $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+                                        if ($role === 'Admin') {
+                                             $sectionStatus = 'Edit';
+                                        }
+                                        elseif ($role === 'Ops') {
+                                            $sectionStatus = 'View';
+                                        }
+                                        else {
+                                            $sectionStatus = 'View';
+                                        }
+                                        upsertUserAndSectionion( $callsign, $role, $email, $selected_letter, $sectionStatus);
+                                        if ($stmt->execute()) {
+                                            $message = "Record updated successfully for callsign: $callsign";
+                                        } else {
+                                            $message = "Error updating record.";
+                                        }
+                                    }
+                                } else {
+                                    $message = "Invalid callsign for your access.";
+                                }
+                            }
+                        }
+                    } catch (Exception $e) {
+                        $message = "Error: " . $e->getMessage();
+                    }
+                }
+                break;
+        }
+    }
+}
+?>
+<div class="center-content">
+    <?php if ($role == 'User'): ?>
+        <img src="/7thArea.png" alt="7th Area" />
+    <?php endif; ?>
+</div>
+<div id="operator-add-container">
+    <h1 class="center-content">Add Operator</h1>
+    <div id="messageDiv" class="center-content"><?php if (!empty($message)) { echo htmlspecialchars($message ?? ''); } ?></div>
     <div class="form-wrapper">
-        <form method="post" id="dataForm">
-            <!-- Callsign Field -->
+        <form method="post" action="operator-add.php" id="dataForm">
+            <!-- Callsign Field (remains required) -->
             <div style="display: flex; align-items: center;">
                 <label for="callsign" style="margin-right: 10px; white-space: nowrap;">Callsign:</label>
-                <input type="text" id="callsign" name="callsign" required>
+                <input type="text" id="callsign" name="callsign" value="<?php echo htmlspecialchars($callsign ?? ''); ?>" required>
             </div>
 
             <!-- Suffix Field -->
             <div style="display: flex; align-items: center;">
                 <label for="suffix" style="margin-right: 10px; white-space: nowrap;">Suffix:</label>
-                <input type="text" id="suffix" name="suffix">
+                <input type="text" id="suffix" name="suffix" value="<?php echo htmlspecialchars($suffix); ?>">
             </div>
 
-            <!-- First Name Field -->
+            <!-- First Name Field (required removed) -->
             <div style="display: flex; align-items: center;">
                 <label for="first_name" style="margin-right: 10px; white-space: nowrap;">First Name:</label>
-                <input type="text" id="first_name" name="first_name" required>
+                <input type="text" id="first_name" name="first_name" value="<?php echo htmlspecialchars($first_name); ?>">
             </div>
 
-            <!-- Last Name Field -->
+            <!-- Last Name Field (required removed) -->
             <div style="display: flex; align-items: center;">
                 <label for="last_name" style="margin-right: 10px; white-space: nowrap;">Last Name:</label>
-                <input type="text" id="last_name" name="last_name" required>
+                <input type="text" id="last_name" name="last_name" value="<?php echo htmlspecialchars($last_name); ?>">
             </div>
 
             <!-- Class Field -->
             <div style="display: flex; align-items: center;">
                 <label for="class" style="margin-right: 10px; white-space: nowrap;">Class:</label>
-                <input type="text" id="class" name="class">
+                <input type="text" id="class" name="class" value="<?php echo htmlspecialchars($class); ?>">
             </div>
 
             <!-- Start Date Field -->
             <div style="display: flex; align-items: center;">
                 <label for="date_start" style="margin-right: 10px; white-space: nowrap;">Start Date:</label>
-                <input type="text" id="date_start" name="date_start">
+                <input type="text" id="date_start" name="date_start" value="<?php echo htmlspecialchars($date_start); ?>">
             </div>
 
             <!-- Expiration Date Field -->
             <div style="display: flex; align-items: center;">
                 <label for="date_exp" style="margin-right: 10px; white-space: nowrap;">Expiration Date:</label>
-                <input type="text" id="date_exp" name="date_exp">
+                <input type="text" id="date_exp" name="date_exp" value="<?php echo htmlspecialchars($date_exp); ?>">
             </div>
 
             <!-- New Call Field -->
             <div style="display: flex; align-items: center;">
                 <label for="new_call" style="margin-right: 10px; white-space: nowrap;">New Call:</label>
-                <input type="text" id="new_call" name="new_call">
+                <input type="text" id="new_call" name="new_call" value="<?php echo htmlspecialchars($new_call); ?>">
             </div>
 
             <!-- Old Call Field -->
             <div style="display: flex; align-items: center;">
                 <label for="old_call" style="margin-right: 10px; white-space: nowrap;">Old Call:</label>
-                <input type="text" id="old_call" name="old_call">
+                <input type="text" id="old_call" name="old_call" value="<?php echo htmlspecialchars($old_call); ?>">
             </div>
 
             <!-- Born Field -->
             <div style="display: flex; align-items: center;">
                 <label for="born" style="margin-right: 10px; white-space: nowrap;">Born:</label>
-                <input type="text" id="born" name="born">
+                <input type="text" id="born" name="born" value="<?php echo htmlspecialchars($born ?? ''); ?>"> 
             </div>
 
             <!-- Address Fields -->
             <div style="display: flex; align-items: center;" class="full-width">
                 <label for="address" style="margin-right: 10px; white-space: nowrap;">Address:</label>
-                <input type="text" id="address" name="address" class="full-width-input">
+                <input type="text" id="address" name="address" class="full-width-input" value="<?php echo htmlspecialchars($address); ?>">
             </div>
-
             <div style="display: flex; align-items: center;" class="full-width">
                 <label for="address2" style="margin-right: 10px; white-space: nowrap;">Address 2:</label>
-                <input type="text" id="address2" name="address2" class="full-width-input">
+                <input type="text" id="address2" name="address2" class="full-width-input" value="<?php echo htmlspecialchars($address2); ?>">
             </div>
 
             <!-- City, State, Zip, and Country Fields -->
             <div style="display: flex; align-items: center;">
                 <label for="city" style="margin-right: 10px; white-space: nowrap;">City:</label>
-                <input type="text" id="city" name="city">
+                <input type="text" id="city" name="city" value="<?php echo htmlspecialchars($city); ?>">
             </div>
-
             <div style="display: flex; align-items: center;">
                 <label for="state" style="margin-right: 10px; white-space: nowrap;">State:</label>
-                <input type="text" id="state" name="state">
+                <input type="text" id="state" name="state" value="<?php echo htmlspecialchars($state); ?>">
             </div>
-
             <div style="display: flex; align-items: center;">
                 <label for="zip" style="margin-right: 10px; white-space: nowrap;">Zip:</label>
-                <input type="text" id="zip" name="zip">
+                <input type="text" id="zip" name="zip" value="<?php echo htmlspecialchars($zip); ?>">
             </div>
-            <!--
-            <div style="display: flex; align-items: center;">
-                <label for="country" style="margin-right: 10px; white-space: nowrap;">Country:</label>
-                <input type="text" id="country" name="country">
-            </div> -->
-            
+
             <!-- Email and Phone Fields -->
             <div style="display: flex; align-items: center;">
                 <label for="email" style="margin-right: 10px; white-space: nowrap;">Email:</label>
-                <input type="email" id="email" name="email">
+                <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($email); ?>">
             </div>
-
             <div style="display: flex; align-items: center;">
                 <label for="phone" style="margin-right: 10px; white-space: nowrap;">Phone:</label>
-                <input type="tel" id="phone" name="phone">
+                <input type="tel" id="phone" name="phone" value="<?php echo htmlspecialchars($phone); ?>">
             </div>
 
-            <!-- Custom Address / Status Field -->
+
+            <!-- Status / Custom Address Field -->
             <?php if ($role == 'Admin'): ?>
                 <div style="display: flex; align-items: center;">
                     <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Status</label>
                     <select name="customAddress" id="customAddress">
-                        <option value="Active">Active</option>
-                        <option value="Custom Address">Custom Address</option>
-                        <option value="New">New</option>
-                        <option value="Via">Via</option>
+                        <option value="Active" <?php echo ($customAddress === 'Active' ? 'selected' : ''); ?>>Active</option>
+                        <option value="Custom Address" <?php echo ($customAddress === 'Custom Address' ? 'selected' : ''); ?>>Custom Address</option>
+                        <option value="New" <?php echo ($customAddress === 'New' ? 'selected' : ''); ?>>New</option>
+                        <option value="Via" <?php echo ($customAddress === 'Via' ? 'selected' : ''); ?>>Via</option>
                     </select>
                 </div>
             <?php else: ?>
                 <div style="display: flex; align-items: center;">
                     <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Custom Address</label>
-                    <input type="checkbox" id="customAddress" name="customAddress">
+                    <input type="checkbox" id="customAddress" name="customAddress" <?php if ($customAddress === 'On') echo 'checked'; ?>>
                 </div>
             <?php endif; ?>
 
@@ -189,7 +340,7 @@ ini_set('display_errors', '1');
                     <label for="role" style="margin-right: 10px; white-space: nowrap;">Role:</label>
                     <select id="role" name="role">
                         <?php foreach ($available_roles as $available_role): ?>
-                            <option value="<?php echo $available_role; ?>" <?php if ($available_role === 'User') echo 'selected'; ?>>
+                            <option value="<?php echo $available_role; ?>" <?php if ($available_role === $roleField) echo 'selected'; ?>>
                                 <?php echo $available_role; ?>
                             </option>
                         <?php endforeach; ?>
@@ -197,237 +348,30 @@ ini_set('display_errors', '1');
                 </div>
             <?php endif; ?>
 
-            <!-- Hidden Field to Retain Selected Letter -->
-            <input type="hidden" name="selected_letter" value="<?php echo htmlspecialchars($selectedLetter); ?>">
-            <br>
-
             <!-- Form Buttons -->
-            <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
-                <input type="submit" value="Submit" id="submitButton" disabled>
-            </div>
-            <br>
-
-            <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
-                <button type="button" id="fetchButton">Fetch Data from QRZ</button>
-            </div>
-            <br>
-
-            <div class="full-width" style="display: flex; align-items: center; justify-content: center;">
-                <button type="button" id="clearButton">Clear</button>
+            <div class="form-buttons">
+                
+                <button type="submit" name="action" value="update" 
+                        <?php echo ($customAddress === 'Custom Address' ? '' : 'enable'); ?>>
+                    Add Operator
+                </button>
+                
+                <button type="submit" name="action" value="fetch_qrz"
+                        <?php echo ($customAddress === 'Custom Address' ? '' : 'enable'); ?>>
+                    Fetch Data from QRZ
+                </button>
+                
+                <button type="submit" name="action" value="clear">Clear Form</button>
             </div>
         </form>
     </div>
-
-    <?php
-    // Process form submission for adding a new operator (ignore letter select form)
-    if ($_SERVER["REQUEST_METHOD"] === "POST" && !isset($_POST['letter_select_form'])) {
-        // Sanitize incoming POST values
-        $callsign    = htmlspecialchars($_POST['callsign']);
-        $first_name  = htmlspecialchars($_POST['first_name']);
-        $last_name   = htmlspecialchars($_POST['last_name']);
-        $class       = htmlspecialchars($_POST['class']);
-        $lic_issued  = htmlspecialchars($_POST['date_start']);
-        $lic_exp     = htmlspecialchars($_POST['date_exp']);
-        $new_call    = htmlspecialchars($_POST['new_call']);
-        $old_call    = htmlspecialchars($_POST['old_call']);
-        $address1    = htmlspecialchars($_POST['address']);
-        $address2    = htmlspecialchars($_POST['address2']);
-        $city        = htmlspecialchars($_POST['city']);
-        $state       = htmlspecialchars($_POST['state']);
-        $zip         = htmlspecialchars($_POST['zip']);
-        //$country     = htmlspecialchars($_POST['country']);
-        $email       = htmlspecialchars($_POST['email']);
-        $phone       = htmlspecialchars($_POST['phone']);
-        $dob         = htmlspecialchars($_POST['born'] ?? null);
-
-        // Convert date formats for the 'born' field if needed
-        if ($dob !== null) {
-            if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $dob)) { // YYYY-MM-DD HH:MM:SS format
-                $datetime = $dob;
-            } elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) { // YYYY-MM-DD format
-                $datetime = $dob . ' 00:00:00';
-            } elseif (preg_match('/^\d{4}$/', $dob)) { // YYYY format (from QRZ)
-                $datetime = $dob . '-01-01 00:00:00';
-            } else {
-                $datetime = null; // Invalid format
-            }
-        }
-        $dob = $datetime;
-        $custom = htmlspecialchars($_POST['customAddress'] ?? 'Off');
-        $role   = htmlspecialchars($_POST['role'] ?? 'User');
-
-        // Additional fields set to null by default
-        $pc_em_date    = $alt_phone = $mail_inst = $remarks = $attachments = $mail_label = $pc_sent = $status = $year_of_birth = null;
-        $suffix        = htmlspecialchars($_POST['suffix'] ?? null);
-        $updated       = date("Y-m-d");
-     
-        $selected_letter = getFirstLetterAfterNumber($callsign);
-        //echo "Selected Letter: $selected_letter<br>";
-        try{
-            $dbInfo = $config['db'];
-            $pdo = getPDOConnection($dbInfo);
-
-            if ($pdo) {
-                $checkSql = "SELECT CASE WHEN EXISTS (
-                                 SELECT 1 FROM `sections` 
-                                 WHERE `call` = :call 
-                                   AND `letter` = :letter 
-                                   AND `status` = 'Edit'
-                               ) THEN 1 ELSE 0 END AS result;";
-                $checkStmt = $pdo->prepare($checkSql);
-                $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
-                $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
-                $checkStmt->execute();
-                
-                // Fetch one row as an associative array.
-                $access = $checkStmt->fetch(PDO::FETCH_ASSOC);  
-            }
-            
-            if ($access['result'] == 0) {   
-                $msgecho = "Access denied for user: $user and Role: $role adding  $callsign";
-                exit;
-            }             
-        }
-        catch (Exception $e) {
-            $msgecho = "Error: " . $e->getMessage();
-        }
-        // 
-        // If the selected letter returns an error, exit immediately
-        if (str_starts_with($selected_letter, "Error:")) {
-            exit;
-        } else {
-            if (isset($config['sections'][$selected_letter])) {
-                $dbInfo = $config['sections'][$selected_letter];
-            } else {
-                $msgecho = "Invalid Call for your access.";
-                exit;
-            }
-            $resultMessage = insertUserAndSection( $callsign, $role, $email, $selected_letter, $status);
-            echo $resultMessage;
-            try {
-                $pdo = getPDOConnection($dbInfo);
-                if ($pdo) {
-                    // Check if the callsign already exists
-                    $checkSql  = "SELECT 1 FROM tbl_Operator WHERE `Call` = :call";
-                    $checkStmt = $pdo->prepare($checkSql);
-                    $checkStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
-                    $checkStmt->execute();
-                    $result = $checkStmt->fetchAll(PDO::FETCH_ASSOC);
-
-                    if (count($result) == 0) 
-                    {   
-                        echo "<div class='result'>";
-                        echo "<h3>Submitted Data:</h3>";
-                        echo "Callsign: $callsign<br>";
-                        echo "Suffix: $suffix<br>";
-                        echo "First Name: $first_name<br>";
-                        echo "Last Name: $last_name<br>";
-                        echo "Class: $class<br>";
-                        echo "Start Date: $lic_issued<br>";
-                        echo "Expiration Date: $lic_exp<br>";
-                        echo "New Call: $new_call<br>";
-                        echo "Old Call: $old_call<br>";
-                        echo "Address: $address1<br>";
-                        echo "Address 2: $address2<br>";
-                        echo "City: $city<br>";
-                        echo "State: $state<br>";
-                        echo "Zip: $zip<br>";
-                        //echo "Country: $country<br>";
-                        echo "Email: $email<br>";
-                        echo "Phone: $phone<br>";
-                        echo "Born: " . ($dob !== null ? date("Y", strtotime($dob)) : "N/A") . "<br>";
-                        echo "Custom Attress: $custom<br>";
-                        echo "Role: $role<br>";
-                        $sql = "INSERT INTO `tbl_Operator` (
-                                    `Call`, `Status`, `PC/em date`, `Suffix`, `FirstName`, `LastName`, 
-                                    `Address_1`, `Address_2`, `City`, `Zip`, `State`, `Phone`, 
-                                    `Alt_Phone`, `Updated`, `Lic-exp`, `Lic-issued`, `DOB`, `E-Mail`, 
-                                    `Class`, `Mail-Inst`, `NewCall`, `Remarks`, `Attachments`, `Mail-Label`, 
-                                    `PC_Sent`, `Year-of-birth`, `Old_call`
-                                ) 
-                                VALUES (
-                                    :call, :status, :pc_em_date, :suffix, :first_name, :last_name, 
-                                    :address1, :address2, :city, :zip, :state, :phone, 
-                                    :alt_phone, :updated, :lic_exp, :lic_issued, :dob, :email, 
-                                    :class, :mail_inst, :new_call, :remarks, :attachments, :mail_label, 
-                                    :pc_sent, :year_of_birth, :old_call
-                                )";
-
-                        $stmt = $pdo->prepare($sql);
-
-                        if ($stmt) {
-                            // Build the parameter array
-                            $params = [
-                                ':call'          => $callsign,
-                                ':status'        => $status,
-                                ':pc_em_date'    => $pc_em_date,
-                                ':suffix'        => $suffix,
-                                ':first_name'    => $first_name,
-                                ':last_name'     => $last_name,
-                                ':address1'      => $address1,
-                                ':address2'      => $address2,
-                                ':city'          => $city,
-                                ':zip'           => $zip,
-                                ':state'         => $state,
-                                ':phone'         => $phone,
-                                ':alt_phone'     => $alt_phone,
-                                ':updated'       => $updated,
-                                ':lic_exp'       => $lic_exp,
-                                ':lic_issued'    => $lic_issued,
-                                ':dob'           => $dob,
-                                ':email'         => $email,
-                                ':class'         => $class,
-                                ':mail_inst'     => $mail_inst,
-                                ':new_call'      => $new_call,
-                                ':remarks'       => $remarks,
-                                ':attachments'   => $attachments,
-                                ':mail_label'    => $mail_label,
-                                ':pc_sent'       => $pc_sent,
-                                ':year_of_birth' => $year_of_birth,
-                                ':old_call'      => $old_call,
-                            ];
-
-                            // Bind each parameter with the appropriate type
-                            foreach ($params as $param => $value) {
-                                $type = PDO::PARAM_STR;
-                                if ($param === ':mail_label' || $param === ':pc_sent') {
-                                    $type = PDO::PARAM_INT;
-                                }
-                                $stmt->bindValue($param, $value, $type);
-                            }
-
-                            if ($stmt->execute()) {
-                                echo "New record created successfully";
-                            } else {
-                                $errorInfo = $stmt->errorInfo();
-                                echo "Error inserting data: " . $errorInfo[2];
-                            }
-                        } else {
-                            echo "Error preparing statement: " . $pdo->errorInfo()[2];
-                        }
-                    }
-                else {
-                    $msgecho = "User $callsign is already in the database.";
-                    $callExists = true;
-                }
-            }
-            } catch (PDOException $e) {
-                $msgecho = "Database error: " . $e->getMessage();
-                error_log("Database error: " . $e->getMessage());
-            } catch (Exception $e) {
-                $msgecho = "An error occurred: " . $e->getMessage();
-                error_log("An error occurred: " . $e->getMessage());
-            }
-        }
-    }
-    ?>
 </div>
+
 <?php
-// Include Java file (do not change to avoid breaking functionality)
-$java = "$root/backend/java2.php";
-include($java);
 
-// Include footer
+
+
 $footerPath = "$root/backend/footer.php";
-
 include($footerPath);
+?>
+
