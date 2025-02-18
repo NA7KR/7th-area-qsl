@@ -806,8 +806,7 @@ function upsertUserAndSection($callsign, $role, $email, $letter, $sectionStatus)
 }
 
 
-
-function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active', 'License Expired']) {
+function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active', 'License Expired'], $cardsOnHandMin = 0) {
     // Dynamically create a parameterized IN clause for statuses
     $statusPlaceholders = implode(',', array_fill(0, count($statusFilter), '?'));
 
@@ -823,6 +822,8 @@ function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active
             o.`State`,
             o.`Zip`,
             o.`Status`,
+            o.`Lic-exp`,
+            o.`Remarks`,
             COALESCE(cr.CardsReceived, 0) AS CardsReceived,
             COALESCE(cm.CardsMailed, 0) AS CardsMailed,
             COALESCE(crt.CardsReturned, 0) AS CardsReturned,
@@ -852,8 +853,15 @@ function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active
             GROUP BY `Call`
         ) mr ON o.`Call` = mr.`Call`
         WHERE o.`Status` IN ($statusPlaceholders)
-        HAVING CardsOnHand > 0 AND NetBalance < ?;
     ";
+
+    // Modify HAVING clause dynamically based on cardsOnHandMin
+    $havingClause = " HAVING NetBalance < ?";
+    if ($cardsOnHandMin !== null) {
+        $havingClause .= " AND CardsOnHand > ?";
+    }
+    
+    $query .= $havingClause;
 
     $stmt = $pdo->prepare($query);
 
@@ -861,13 +869,20 @@ function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active
     foreach ($statusFilter as $key => $status) {
         $stmt->bindValue($key + 1, $status, PDO::PARAM_STR);
     }
-    // Bind NetBalance threshold as the last parameter
+    
+    // Bind NetBalance threshold
     $stmt->bindValue(count($statusFilter) + 1, $netBalanceMin, PDO::PARAM_STR);
+
+    // Bind CardsOnHand threshold if it's set
+    if ($cardsOnHandMin !== null) {
+        $stmt->bindValue(count($statusFilter) + 2, $cardsOnHandMin, PDO::PARAM_INT);
+    }
 
     $stmt->execute();
     
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
 
 function getTotalCardsOnHand($pdo) {
     $sql = "
