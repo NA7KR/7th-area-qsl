@@ -1,9 +1,24 @@
 <?php
+/*
+Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+ */
 session_start();
 $root  = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Edit Operator";
 include("$root/backend/header.php");
-
+include_once("$root/backend/functions.php");
 // Ensure the user is logged in.
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
@@ -33,7 +48,7 @@ $country      = (string)($country ?? '');
 $email        = (string)($email ?? '');
 $phone        = (string)($phone ?? '');
 $born         = (string)($born ?? '');
-$customAddress= (string)($customAddress ?? '');
+$status= (string)($status ?? '');
 $roleField    = (string)($roleField ?? 'User');
 
 $message = ""; // Message to display to the user
@@ -47,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } else {
         switch($_POST['action']) {
             case 'fetch_qrz':
-                if ($_POST['customAddress'] === 'Custom Address') {
+                if ($_POST['status'] === 'Custom Address') {
                     $message = "Cannot fetch QRZ data when Custom Address is selected";
                 } else {
                     require_once("$root/backend/qrz_fetch.php");
@@ -71,7 +86,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $date_start = $date_exp = $new_call = $old_call = "";
                 $address = $address2 = $city = $state = $zip = "";
                 $email = $phone = $born = "";
-                $customAddress = "Active";
+                $status = "Active";
                 $message = "Form cleared";
                 break;
 
@@ -128,7 +143,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                         $email         = trim($_POST['email'] ?? '');
                                         $phone         = trim($_POST['phone'] ?? '');
                                         $dob          = trim($_POST['born'] ?? '');
-                                        $customAddress = trim($_POST['customAddress'] ?? 'Active');  // Use consistent field name
+                                        $status = trim($_POST['status'] ?? 'Active');  // Use consistent field name
                                            // Convert date formats for the 'born' field if needed
                                         if ($dob !== null) {
                                             if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $dob)) { // YYYY-MM-DD HH:MM:SS format
@@ -141,7 +156,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                                 $born = null; // Invalid format
                                             }
                                         } else {
-                                        $customAddress = trim($_POST['customAddress'] ?? '');
+                                        $status = trim($_POST['status'] ?? '');
                                         if ($role === 'Admin') {
                                             $roleField = trim($_POST['role'] ?? 'User');
                                         }
@@ -178,7 +193,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                         $stmt->bindValue(':email', $email, PDO::PARAM_STR);
                                         $stmt->bindValue(':phone', $phone, PDO::PARAM_STR);
                                         $stmt->bindValue(':dob', $born, PDO::PARAM_STR);
-                                        $stmt->bindValue(':status', $customAddress, PDO::PARAM_STR);
+                                        $stmt->bindValue(':status', $status, PDO::PARAM_STR);
                                         $stmt->bindValue(':updated', $updated, PDO::PARAM_STR);
                                         $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
                                         if ($role === 'Admin') {
@@ -190,7 +205,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                         else {
                                             $sectionStatus = 'View';
                                         }
-                                        upsertUserAndSectionion( $callsign, $role, $email, $selected_letter, $sectionStatus);
+                                        upsertUserAndSection($callsign, $role, $email, $selected_letter, $sectionStatus) ;
+                                        
                                         if ($stmt->execute()) {
                                             $message = "Record updated successfully for callsign: $callsign";
                                         } else {
@@ -227,11 +243,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <input type="text" id="callsign" name="callsign" value="<?php echo htmlspecialchars($callsign ?? ''); ?>" required>
             </div>
 
-            <!-- Suffix Field -->
-            <div style="display: flex; align-items: center;">
-                <label for="suffix" style="margin-right: 10px; white-space: nowrap;">Suffix:</label>
-                <input type="text" id="suffix" name="suffix" value="<?php echo htmlspecialchars($suffix); ?>">
-            </div>
+           <!-- Status / Custom Address Field -->
+           <?php if ($role == 'Admin'): ?>
+                <div style="display: flex; align-items: center;">
+                    <label for="status" style="margin-right: 10px; white-space: nowrap;">Status</label>
+                    <select name="status" id="status">
+                        <option value="Active" <?php echo ($status === 'Active' ? 'selected' : ''); ?>>Active</option>
+                        <option value="Custom Address" <?php echo ($status === 'Active_DIFF_Address' ? 'selected' : ''); ?>>Custom Address</option>
+                        <option value="Active_DIFF_Addre" <?php echo ($status === 'DNU-DESTROY' ? 'selected' : ''); ?>>DNU-DESTROY</option>
+                        <option value="License Expired" <?php echo ($status === 'License Expired' ? 'selected' : ''); ?>>License Expired</option>
+                        <option value="New" <?php echo ($status === 'New' ? 'selected' : ''); ?>>New</option>
+                        <option value="SILENT KEY" <?php echo ($status === 'SILENT KEY' ? 'selected' : ''); ?>>SILENT KEY</option>
+                        <option value="Via" <?php echo ($status === 'Via' ? 'selected' : ''); ?>>Via</option>
+                    </select>
+                </div>
+            <?php else: ?>
+                <div style="display: flex; align-items: center;">
+                    <label for="status" style="margin-right: 10px; white-space: nowrap;">Custom Address</label>
+                    <input type="checkbox" id="status" name="status" <?php if ($status === 'On') echo 'checked'; ?>>
+                </div>
+            <?php endif; ?>
 
             <!-- First Name Field (required removed) -->
             <div style="display: flex; align-items: center;">
@@ -316,23 +347,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
 
 
-            <!-- Status / Custom Address Field -->
-            <?php if ($role == 'Admin'): ?>
-                <div style="display: flex; align-items: center;">
-                    <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Status</label>
-                    <select name="customAddress" id="customAddress">
-                        <option value="Active" <?php echo ($customAddress === 'Active' ? 'selected' : ''); ?>>Active</option>
-                        <option value="Custom Address" <?php echo ($customAddress === 'Custom Address' ? 'selected' : ''); ?>>Custom Address</option>
-                        <option value="New" <?php echo ($customAddress === 'New' ? 'selected' : ''); ?>>New</option>
-                        <option value="Via" <?php echo ($customAddress === 'Via' ? 'selected' : ''); ?>>Via</option>
-                    </select>
-                </div>
-            <?php else: ?>
-                <div style="display: flex; align-items: center;">
-                    <label for="customAddress" style="margin-right: 10px; white-space: nowrap;">Custom Address</label>
-                    <input type="checkbox" id="customAddress" name="customAddress" <?php if ($customAddress === 'On') echo 'checked'; ?>>
-                </div>
-            <?php endif; ?>
+            
+              
 
             <!-- Role Selection for Admin Users -->
             <?php if ($role == 'Admin'): ?>
@@ -349,20 +365,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <?php endif; ?>
 
             <!-- Form Buttons -->
-            <div class="form-buttons">
+<div style="display: flex; justify-content: center; align-items: center; width: 100%; margin: 20px auto;">
+    <div style="display: flex; gap: 50px; justify-content: center; align-items: center; min-width: 800px;">
+        <button type="submit" 
+                name="action" 
+                value="update" 
                 
-                <button type="submit" name="action" value="update" 
-                        <?php echo ($customAddress === 'Custom Address' ? '' : 'enable'); ?>>
-                    Add Operator
-                </button>
+                style="flex: 0 0 200px; padding: 12px 24px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Add Operator
+        </button>
+        
+        <button type="submit" 
+                name="action" 
+                value="fetch_qrz"
                 
-                <button type="submit" name="action" value="fetch_qrz"
-                        <?php echo ($customAddress === 'Custom Address' ? '' : 'enable'); ?>>
-                    Fetch Data from QRZ
-                </button>
-                
-                <button type="submit" name="action" value="clear">Clear Form</button>
-            </div>
+                style="flex: 0 0 200px; padding: 12px 24px; background-color: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Fetch Data from QRZ
+        </button>
+        
+        <button type="submit" 
+                name="action" 
+                value="clear"
+                style="flex: 0 0 200px; padding: 12px 24px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Clear Form
+        </button>
+    </div>
+</div>
         </form>
     </div>
 </div>

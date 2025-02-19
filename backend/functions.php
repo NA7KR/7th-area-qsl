@@ -715,7 +715,7 @@ function getFirstLetterAfterNumber($call) {
  *
  * @return string A message indicating success or describing the error.
  */
-function upsertUserAndSection($callsign, $role, $email, $letter, $sectionStatus) {
+function upsertUserAndSection($callsign, $role, $email, $letter, $sectionStatus, $delete = false) {
     try {
         // Get the PDO connection
         $config = include('../config.php');
@@ -724,6 +724,29 @@ function upsertUserAndSection($callsign, $role, $email, $letter, $sectionStatus)
 
         // Start a transaction
         $pdo->beginTransaction();
+
+        // If delete flag is set, remove records
+        if ($delete) {
+            // Delete user
+            $deleteUserSql = "DELETE FROM `users` WHERE `username` = :call";
+            $deleteUserStmt = $pdo->prepare($deleteUserSql);
+            $deleteUserStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+            if (!$deleteUserStmt->execute()) {
+                throw new Exception("Error deleting user: " . implode(", ", $deleteUserStmt->errorInfo()));
+            }
+
+            // Delete section
+            $deleteSectionSql = "DELETE FROM `sections` WHERE `call` = :call";
+            $deleteSectionStmt = $pdo->prepare($deleteSectionSql);
+            $deleteSectionStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+            if (!$deleteSectionStmt->execute()) {
+                throw new Exception("Error deleting section: " . implode(", ", $deleteSectionStmt->errorInfo()));
+            }
+
+            // Commit deletion
+            $pdo->commit();
+            return "User, section, and tbl_Operator record deleted successfully";
+        }
 
         // Check if the user exists
         $checkSql  = "SELECT id FROM users WHERE `username` = :call";
@@ -804,7 +827,6 @@ function upsertUserAndSection($callsign, $role, $email, $letter, $sectionStatus)
         return "An error occurred: " . $e->getMessage();
     }
 }
-
 
 function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active', 'License Expired'], $cardsOnHandMin = 0) {
     // Dynamically create a parameterized IN clause for statuses

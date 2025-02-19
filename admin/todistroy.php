@@ -9,6 +9,9 @@ You may obtain a copy of the License at
     http://www.apache.org/licenses/LICENSE-2.0
 */
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 session_start();
 $root = realpath($_SERVER["DOCUMENT_ROOT"]);
@@ -74,7 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $selectedLetter && isset($config['s
         // Fetch users who owe money
         $netBalanceThreshold = 100;
         $statusList = ['License Expired', 'SILENT KEY', 'DNU-DESTROY', 'Inactive'];
-        $redData = fetchFilteredData($pdo, $netBalanceThreshold, $statusList,0);
+        $redData = fetchFilteredData($pdo, $netBalanceThreshold, $statusList);
+
 
         // Apply filters
         if ($filterEmail) {
