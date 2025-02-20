@@ -715,70 +715,68 @@ function getFirstLetterAfterNumber($call) {
  *
  * @return string A message indicating success or describing the error.
  */
-function upsertUserAndSection($callsign, $role, $email, $letter, $sectionStatus, $delete = false) {
+function upsertUserAndSection($callsign, $role = null, $email = null, $letter = null, $sectionStatus = null, $delete = false, $fetchOnly = false) {
     try {
         // Get the PDO connection
         $config = include('../config.php');
         $dbInfo = $config['db'];
         $pdo = getPDOConnection($dbInfo);
 
-        // Start a transaction
-        $pdo->beginTransaction();
-
-        // If delete flag is set, remove records
         if ($delete) {
-            // Delete user
+            // Delete user and section
             $deleteUserSql = "DELETE FROM `users` WHERE `username` = :call";
             $deleteUserStmt = $pdo->prepare($deleteUserSql);
             $deleteUserStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
-            if (!$deleteUserStmt->execute()) {
-                throw new Exception("Error deleting user: " . implode(", ", $deleteUserStmt->errorInfo()));
-            }
+            $deleteUserStmt->execute();
 
-            // Delete section
             $deleteSectionSql = "DELETE FROM `sections` WHERE `call` = :call";
             $deleteSectionStmt = $pdo->prepare($deleteSectionSql);
             $deleteSectionStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
-            if (!$deleteSectionStmt->execute()) {
-                throw new Exception("Error deleting section: " . implode(", ", $deleteSectionStmt->errorInfo()));
-            }
+            $deleteSectionStmt->execute();
 
-            // Commit deletion
-            $pdo->commit();
-            return "User, section, and tbl_Operator record deleted successfully";
+            return ["message" => "User and section deleted successfully"];
         }
 
-        // Check if the user exists
-        $checkSql  = "SELECT id FROM users WHERE `username` = :call";
+        // Fetch user and section data without modifying
+        if ($fetchOnly) {
+            $fetchSql = "
+                SELECT 
+                    u.username, u.role, u.email, 
+                    s.letter, s.status 
+                FROM users u 
+                LEFT JOIN sections s ON u.username = s.call 
+                WHERE u.username = :call
+            ";
+            $fetchStmt = $pdo->prepare($fetchSql);
+            $fetchStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+            $fetchStmt->execute();
+            $result = $fetchStmt->fetch(PDO::FETCH_ASSOC);
+
+            return $result ? $result : ["message" => "No data found for callsign: $callsign"];
+        }
+
+        // Proceed with Upsert logic (Same as before)
+        $pdo->beginTransaction();
+
+        $checkSql = "SELECT id FROM users WHERE `username` = :call";
         $checkStmt = $pdo->prepare($checkSql);
         $checkStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
         $checkStmt->execute();
         $user = $checkStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($user) {
-            // User exists, update their information
             $sql1 = "UPDATE `users` SET `role` = :role, `email` = :email WHERE `username` = :call";
-            $stmt1 = $pdo->prepare($sql1);
-            $stmt1->bindValue(':call', $callsign, PDO::PARAM_STR);
-            $stmt1->bindValue(':role', $role, PDO::PARAM_STR);
-            $stmt1->bindValue(':email', $email, PDO::PARAM_STR);
-            if (!$stmt1->execute()) {
-                throw new Exception("Error updating user: " . implode(", ", $stmt1->errorInfo()));
-            }
         } else {
-            // Insert new user
-            $sql1 = "INSERT INTO `users` (`username`, `role`, `email`)
-                     VALUES (:call, :role, :email)";
-            $stmt1 = $pdo->prepare($sql1);
-            $stmt1->bindValue(':call', $callsign, PDO::PARAM_STR);
-            $stmt1->bindValue(':role', $role, PDO::PARAM_STR);
-            $stmt1->bindValue(':email', $email, PDO::PARAM_STR);
-            if (!$stmt1->execute()) {
-                throw new Exception("Error inserting into users: " . implode(", ", $stmt1->errorInfo()));
-            }
+            $sql1 = "INSERT INTO `users` (`username`, `role`, `email`) VALUES (:call, :role, :email)";
         }
+        
+        $stmt1 = $pdo->prepare($sql1);
+        $stmt1->bindValue(':call', $callsign, PDO::PARAM_STR);
+        $stmt1->bindValue(':role', $role, PDO::PARAM_STR);
+        $stmt1->bindValue(':email', $email, PDO::PARAM_STR);
+        $stmt1->execute();
 
-        // Check if a section record exists for this callsign
+        // Upsert section
         $checkSectionSql = "SELECT id FROM sections WHERE `call` = :call";
         $checkSectionStmt = $pdo->prepare($checkSectionSql);
         $checkSectionStmt->bindValue(':call', $callsign, PDO::PARAM_STR);
@@ -786,47 +784,36 @@ function upsertUserAndSection($callsign, $role, $email, $letter, $sectionStatus,
         $section = $checkSectionStmt->fetch(PDO::FETCH_ASSOC);
 
         if ($section) {
-            // Update the section entry
             $sql2 = "UPDATE `sections` SET `letter` = :letter, `status` = :status WHERE `call` = :call";
-            $stmt2 = $pdo->prepare($sql2);
-            $stmt2->bindValue(':letter', $letter, PDO::PARAM_STR);
-            $stmt2->bindValue(':call', $callsign, PDO::PARAM_STR);
-            $stmt2->bindValue(':status', $sectionStatus, PDO::PARAM_STR);
-            if (!$stmt2->execute()) {
-                throw new Exception("Error updating sections: " . implode(", ", $stmt2->errorInfo()));
-            }
         } else {
-            // Insert a new section record
-            $sql2 = "INSERT INTO `sections` (`letter`, `call`, `status`)
-                     VALUES (:letter, :call, :status)";
-            $stmt2 = $pdo->prepare($sql2);
-            $stmt2->bindValue(':letter', $letter, PDO::PARAM_STR);
-            $stmt2->bindValue(':call', $callsign, PDO::PARAM_STR);
-            $stmt2->bindValue(':status', $sectionStatus, PDO::PARAM_STR);
-            if (!$stmt2->execute()) {
-                throw new Exception("Error inserting into sections: " . implode(", ", $stmt2->errorInfo()));
-            }
+            $sql2 = "INSERT INTO `sections` (`letter`, `call`, `status`) VALUES (:letter, :call, :status)";
         }
 
-        // Commit the transaction
+        $stmt2 = $pdo->prepare($sql2);
+        $stmt2->bindValue(':letter', $letter, PDO::PARAM_STR);
+        $stmt2->bindValue(':call', $callsign, PDO::PARAM_STR);
+        $stmt2->bindValue(':status', $sectionStatus, PDO::PARAM_STR);
+        $stmt2->execute();
+
         $pdo->commit();
-        return "User and section record updated or inserted successfully";
+
+        // Fetch and return updated data
+        return upsertUserAndSection($callsign, null, null, null, null, false, true);
 
     } catch (PDOException $e) {
-        // Rollback on error
         if ($pdo && $pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        error_log("Database error: " . $e->getMessage());
-        return "Database error: " . $e->getMessage();
+        return ["error" => "Database error: " . $e->getMessage()];
     } catch (Exception $e) {
         if ($pdo && $pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        error_log("An error occurred: " . $e->getMessage());
-        return "An error occurred: " . $e->getMessage();
+        return ["error" => "An error occurred: " . $e->getMessage()];
     }
 }
+
+
 
 function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active', 'License Expired'], $cardsOnHandMin = 0) {
     // Dynamically create a parameterized IN clause for statuses
@@ -945,6 +932,5 @@ function getTotalCardsOnHand($pdo) {
         return 0;
     }
 }
-
 
 ?>

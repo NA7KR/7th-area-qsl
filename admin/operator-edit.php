@@ -15,6 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 session_start();
+
 $root  = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Edit Operator";
 include("$root/backend/header.php");
@@ -24,6 +25,8 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
 }
+
+#echo "<pre>" . print_r($_POST, true) . "</pre>";
 
 $role = $_SESSION['role'] ?? 'Admin';
 $user = strtoupper($_SESSION['username'] ?? 'No Call');
@@ -122,11 +125,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             } else {
                                 if (isset($config['sections'][$selected_letter])) {
                                     $dbInfo = $config['sections'][$selected_letter];
-                                    $pdo = getPDOConnection($dbInfo);
+                                    $pdo2 = getPDOConnection($dbInfo);
                                     
-                                    if ($pdo) {
+                                    if ($pdo2) {
                                         $sql = "SELECT * FROM tbl_Operator WHERE `Call` = :call LIMIT 1";
-                                        $stmt = $pdo->prepare($sql);
+                                        $stmt = $pdo2->prepare($sql);
                                         $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
                                         
                                         if ($stmt->execute()) {
@@ -152,8 +155,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                                 $phone         = $result['Phone']      ?? "";
                                                 $born          = $result['DOB']        ?? "";
                                                 $status = $result['Status']     ?? "";
-                                                // need to move db
-                                                $roleField     = $result['Role']       ?? "User";
+                                                $data = upsertUserAndSection($callsign, null, null, null, null, false, true);
+                                        
+                                                $roleField     = $data['role'];
+                                              
                                                 $message = "Data loaded for callsign: $callsign";
                                             } else {
                                                 $message = "No record found for callsign: $callsign";
@@ -182,8 +187,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $selected_letter = getFirstLetterAfterNumber($callsign);
                     try {
                         $dbInfo = $config['db'];
-                        $pdo = getPDOConnection($dbInfo);
-                        if ($pdo) {
+                        $pdo_db = getPDOConnection($dbInfo);
+                        if ($pdo_db) {
                             // Simple direct comparison first
                             if (strtoupper($user) === strtoupper($callsign)) {
                                 $hasAccess = true;
@@ -193,7 +198,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                            WHERE `call` = :call 
                                            AND `letter` = :letter 
                                            AND `status` = 'Edit'";
-                                $checkStmt = $pdo->prepare($checkSql);
+                                $checkStmt = $pdo_db->prepare($checkSql);
                                 $checkStmt->bindValue(':call', $user, PDO::PARAM_STR);
                                 $checkStmt->bindValue(':letter', $selected_letter, PDO::PARAM_STR);
                                 $checkStmt->execute();
@@ -205,8 +210,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             } else {
                                 if (isset($config['sections'][$selected_letter])) {
                                     $dbInfo = $config['sections'][$selected_letter];
-                                    $pdo = getPDOConnection($dbInfo);
-                                    if ($pdo) {
+                                    $pdo_info = getPDOConnection($dbInfo);
+                                    if ($pdo_info) {
                                         // Sanitize and collect all form fields
                                         $suffix        = trim($_POST['suffix'] ?? '');
                                         $first_name    = trim($_POST['first_name'] ?? '');
@@ -236,12 +241,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                             } else {
                                                 $born = null; // Invalid format
                                             }
-                                        } else {
+                                        } 
                                         $status = trim($_POST['status'] ?? '');
+                                       
                                         if ($role === 'Admin') {
                                             $roleField = trim($_POST['role'] ?? 'User');
                                         }
-                                    }
+                                  
+                                       
+                                  
                                         $updated = date("Y-m-d");
 
                                         // Build and execute the UPDATE query
@@ -266,7 +274,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                                 `Updated` = :updated
                                             WHERE `Call` = :call";
 
-                                        $stmt = $pdo->prepare($sql);
+                                        $stmt = $pdo_info->prepare($sql);
                                         $stmt->bindValue(':suffix', $suffix, PDO::PARAM_STR);
                                         $stmt->bindValue(':first_name', $first_name, PDO::PARAM_STR);
                                         $stmt->bindValue(':last_name', $last_name, PDO::PARAM_STR);
@@ -295,7 +303,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                        else {
                                            $sectionStatus = 'View';
                                        }
-                                       upsertUserAndSection( $callsign, $role, $email, $selected_letter, $sectionStatus);
+                                       upsertUserAndSection( $callsign, $roleField, $email, $selected_letter, $sectionStatus);
 
                                         if ($stmt->execute()) {
                                             $message = "Record updated successfully for callsign: $callsign";
@@ -451,7 +459,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             
                         <?php endforeach; ?>
                     </select>
-                    <?php echo "AV $available_role & RF $roleField"; ?>
+                    
                 </div>
             <?php endif; ?>
 

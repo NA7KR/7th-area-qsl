@@ -25,6 +25,8 @@ if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     exit;
 }
 
+#echo "<pre>" . print_r($_POST, true) . "</pre>";
+
 $role = $_SESSION['role'] ?? 'Admin';
 $user = strtoupper($_SESSION['username'] ?? 'No Call');
 $available_roles = ['User', 'Admin', 'Ops'];
@@ -155,12 +157,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                             } else {
                                                 $born = null; // Invalid format
                                             }
-                                        } else {
+                                        } 
                                         $status = trim($_POST['status'] ?? '');
                                         if ($role === 'Admin') {
                                             $roleField = trim($_POST['role'] ?? 'User');
                                         }
-                                    }
+                                    
                                         $updated = date("Y-m-d");
 
                                         // Build and execute the UPDATE query
@@ -205,7 +207,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                         else {
                                             $sectionStatus = 'View';
                                         }
-                                        upsertUserAndSection($callsign, $role, $email, $selected_letter, $sectionStatus) ;
+                                        upsertUserAndSection($callsign, $roleField, $email, $selected_letter, $sectionStatus) ;
                                         
                                         if ($stmt->execute()) {
                                             $message = "Record updated successfully for callsign: $callsign";
@@ -347,8 +349,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
 
 
-            
-              
 
             <!-- Role Selection for Admin Users -->
             <?php if ($role == 'Admin'): ?>
