@@ -1,0 +1,205 @@
+vis<?php
+/*
+Copyright © 2024 NA7KR Kevin Roberts. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+
+// config.php
+return [
+    'db' => [
+        'host' => 'na7kr-mysql',
+        'dbname' => '7th-qsl',
+        'username' => 'root',
+        'password' => 'Gwynedd1965',
+        'port' => 3306,
+    ],
+
+    // Admin submenu configuration
+    'admin' => [
+        'Admin' => '/index.php',
+        'submenu' => [
+            'Login' => [
+                'url' => '/admin/login.php',
+                'login' => false,
+            ],
+            'Logout' => [
+                'url' => '/admin/logout.php',
+                'login' => true,
+            ],
+            'To Pay' => [
+                'url' => '/admin/topay.php',
+                'login' => true,
+            ],
+            'Cards Received' => [
+                'url' => '/admin/cardsreceived.php',
+                'login' => true,
+            ],
+            'To Mail Cards' => [
+                'url' => '/admin/tomailcards.php',
+                'login' => true,
+            ],
+            'Paid' => [
+                'url' => '/admin/paid.php',
+                'login' => true,
+            ],
+            'To Distroy' => [
+                'url' => '/admin/todistroy.php',
+                'login' => true,
+            ],
+            'Disposed Cards' => [
+                'url' => '/admin/dispose.php',
+                'login' => true,
+            ],
+            'No Cards' => [
+                'url' => '/admin/nocards.php',
+                'login' => true,
+            ],
+            'Stamps' => [
+                'url' => '/admin/stamps.php',
+                'login' => true,
+            ],
+            'Purchased' => [
+                'url' => '/admin/purchased.php',
+                'login' => true,
+            ],
+            'Operator Add' => [
+                'url' => '/admin/operator-add.php',
+                'login' => true,
+            ],
+            'Operator Edit' => [
+                'url' => '/admin/operator-edit.php',
+                'login' => true,
+            ],
+            'Operator Delete' => [
+                'url' => '/admin/operator-del.php',
+                'login' => true,
+            ],
+        ],
+    ],
+    'ops' => [  // <-- ONLY ONE "ops" entry - Combined the two!
+        'Ops' => '/index.php', // Correct main entry point
+        'submenu' => [
+            'Login' => [
+                'url' => '/admin/login.php',
+                'login' => false,
+            ],
+            'Logout' => [
+                'url' => '/admin/logout.php',
+                'login' => true,
+            ],
+            'To Pay' => [
+                'url' => '/admin/topay.php',
+                'login' => true,
+            ],
+            'Operator Edit' => [
+                'url' => '/admin/operator-edit.php',
+                'login' => true,
+            ],
+
+        ],
+    ],
+    'user' => [  // <-- ONLY ONE "ops" entry - Combined the two!
+        'User' => '/index.php', // Correct main entry point
+        'submenu' => [
+            'Login' => [
+                'url' => '/admin/login.php',
+                'login' => false,
+            ],
+            'Logout' => [
+                'url' => '/admin/logout.php',
+                'login' => true,
+            ],
+            'To Pay2' => [
+                'url' => '/admin/topay.php',
+                'login' => true,
+            ],
+            'Operator Edit' => [
+                'url' => '/admin/operator-edit.php',
+                'login' => true,
+            ],
+           
+
+        ],
+    ],
+    'ignore_statuses' => [
+        'DNU',
+        'DNU-DESTROY',
+        'License Expired',
+        'SK',
+        'SILENT KEY',
+        'Active_DIFF_Address',
+    ],
+    'stamps' => [
+        'Postcard' => '0.56',
+        'Forever' => '0.73',
+        'Additonal Ounce' => '0.28',
+        'Additonal Two Ounce' => '0.56',
+	'Additonal Three Ounce' => '0.84',
+    ],
+    'sections' => [
+        
+        'F' => [
+            'host' => 'na7kr-mysql', // Replace with your database name
+            'username' => 'root', // Replace with your username
+            'password' => 'Gwynedd1965', // Replace with your password;
+            'dbname' => 'F-Section', // Replace with your database name
+        ],
+        'O' => [
+            'host' => 'na7kr-mysql', // Replace with your database name
+            'username' => 'root', // Replace with your username
+            'password' => 'Gwynedd1965', // Replace with your password;
+            'dbname' => 'O-Section', // Replace with your database name
+        ],
+   
+    ],
+    'unpaid_threshold' => .87,
+    // Email configuration
+    'email' => [
+        'sender' => 'kevin@na7kr.us',
+        'password' => 'zPZvg8MByLGLjgCl',
+        'server' => 'mail.na7kr.us',
+        'port' => 465,
+        'testing' => false, // Debug mode false
+        'debugging' => false,
+        'debug_email' => 'krr001@gmail.com',
+        'send_html' => true,
+        'testing' => false, // Set this to true to use the debug email
+        'from'  => 'ars.na7kr@na7kr.us',
+        'from_name' => 'Kevin Roberts ARRL 7th district QSL sorter for the F and O sections',
+        'sections' => 'F and O sections',
+        'mycall' => 'NA7KR',
+        'myname' => 'Kevin Roberts',
+    ],
+  
+    // Pages configuration
+    'pages' => [
+        'Home' => '/index.php',
+        'Total Cards on Hand' => '/total-m.php',
+        'Total Cards Received' => '/total.php',
+        'Cards Mailed' => '/cardsmailed.php',
+    ],
+   
+    // QRZ API configuration
+    'qrz_api' => [
+        'callsign' => 'na7kr', // Replace with your actual QRZ CALLSIGN key
+        'key' => 'Gwynedd1965!9!' // Replace with your actual QRZ API key
+    ],
+
+];

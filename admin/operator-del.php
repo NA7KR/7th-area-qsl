@@ -72,13 +72,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $message = "Form cleared";
                 break;
 
-        
-
             case 'delete':
-                // --- UPDATE OPERATOR DATA ---
+                // --- DELETE OPERATOR DATA ---
                 $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
                 if (empty($callsign)) {
-                    $message = "Callsign is required for adding.";
+                    $message = "Callsign is required for deleting.";
                 } else {
                     $selected_letter = getFirstLetterAfterNumber($callsign);
                     try {
@@ -102,37 +100,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             }
 
                             if (!$hasAccess) {
-                                $message = "Access denied for user: $user for editing $callsign";
+                                $message = "Access denied for user: $user for deleting $callsign";
                             } else {
-                                if (isset($config['sections'][$selected_letter]))
-                                
-                                {
+                                if (isset($config['sections'][$selected_letter])) {
                                     $dbInfo = $config['sections'][$selected_letter];
                                     $pdo = getPDOConnection($dbInfo);
                                     if ($pdo) {
-                                        // Sanitize and collect all form fields
-                                        
-   
                                         // Build and execute the DELETE query
                                         $sql = "DELETE FROM tbl_Operator WHERE `Call` = :call";
-
                                         $stmt = $pdo->prepare($sql);
                                         $stmt->bindValue(':call', $callsign, PDO::PARAM_STR);
+                                        
+                                        // Determine section status based on role
                                         if ($role === 'Admin') {
-                                             $sectionStatus = 'Edit';
-                                        }
-                                        elseif ($role === 'Ops') {
+                                            $sectionStatus = 'Edit';
+                                        } elseif ($role === 'Ops') {
+                                            $sectionStatus = 'View';
+                                        } else {
                                             $sectionStatus = 'View';
                                         }
-                                        else {
-                                            $sectionStatus = 'View';
-                                        }
+                                        
+                                        // Delete user and section
                                         upsertUserAndSection($callsign, "", "", "", "", true);
                                         
                                         if ($stmt->execute()) {
-                                            $message = "Record updated successfully for callsign: $callsign";
+                                            $message = "Record deleted successfully for callsign: $callsign";
                                         } else {
-                                            $message = "Error updating record.";
+                                            $message = "Error deleting record.";
                                         }
                                     }
                                 } else {
@@ -155,7 +149,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <?php endif; ?>
 </div>
 <div id="operator-add-container">
-    <h1 class="center-content">Add Operator</h1>
+    <h1 class="center-content">Delete Operator</h1>
     <div id="messageDiv" class="center-content">
         <?php if (!empty($message)) { echo htmlspecialchars($message ?? ''); } ?></div>
     <div class="form-wrapper">

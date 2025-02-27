@@ -226,7 +226,10 @@ function fetchAllExpenses(PDO $pdo, string $tableName, ?string $startDate = null
 }
 
 /**
- * Trims each header string
+ * Trims each header string.
+ * 
+ * @param array $headers The array of header strings to be trimmed.
+ * @return array The array of trimmed header strings.
  */
 function normalizeHeaders($headers)
 {
@@ -234,7 +237,10 @@ function normalizeHeaders($headers)
 }
 
 /**
- * Removes #mailto:...# patterns in the email field
+ * Removes #mailto:...# patterns in the email field.
+ * 
+ * @param string $email The email string to be sanitized.
+ * @return string The sanitized email string.
  */
 function sanitizeEmail($email)
 {
@@ -243,6 +249,11 @@ function sanitizeEmail($email)
 
 /**
  * Sends an email to the user regarding unpaid QSL cards.
+ * 
+ * @param string $to The recipient's email address.
+ * @param string $call The recipient's call sign.
+ * @param int $cardsOnHand The number of cards on hand.
+ * @param array $emailConfig The email configuration array.
  */
 function sendEmail($to, $call, $cardsOnHand, $emailConfig)
 {
@@ -612,9 +623,9 @@ function fetchJoinedData(PDO $pdo, string $tableName1, string $tableName2, ?stri
 /**
  * Fetch mailed data for a single call.
  * 
- * @param PDO $pdo The PDO connection object
- * @param string $callSign The call sign to fetch data for
- * @return array The fetched data as an associative array
+ * @param PDO $pdo The PDO connection object.
+ * @param string $callSign The call sign to fetch data for.
+ * @return array The fetched data as an associative array.
  */
 function fetchMailedData(PDO $pdo, string $callSign): array
 {
@@ -638,9 +649,9 @@ function fetchMailedData(PDO $pdo, string $callSign): array
 /**
  * Fetch money received data for a single call.
  * 
- * @param PDO $pdo The PDO connection object
- * @param string $callSign The call sign to fetch data for
- * @return array The fetched data as an associative array
+ * @param PDO $pdo The PDO connection object.
+ * @param string $callSign The call sign to fetch data for.
+ * @return array The fetched data as an associative array.
  */
 function fetchMoneyReceived(PDO $pdo, string $callSign): array
 {
@@ -661,6 +672,17 @@ function fetchMoneyReceived(PDO $pdo, string $callSign): array
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/**
+ * Create a PDO connection for login using config array: ['host','dbname','username','password'].
+ * 
+ * @param array $dbInfo An associative array containing database connection details:
+ *                      - 'host': The hostname of the database server.
+ *                      - 'dbname': The name of the database.
+ *                      - 'username': The username for the database connection.
+ *                      - 'password': The password for the database connection.
+ * @return PDO The PDO instance representing the database connection.
+ * @throws PDOException If the connection to the database fails.
+ */
 function getPDOConnectionLogin(array $dbInfo) {
     try {
         $dsn = "mysql:host={$dbInfo['host']};dbname={$dbInfo['dbname']};charset=utf8";
@@ -673,6 +695,30 @@ function getPDOConnectionLogin(array $dbInfo) {
     }
 }
 
+/**
+ * Inserts data into the tbl_Operator table.
+ * 
+ * @param mysqli $conn The MySQLi connection object.
+ * @param string $callsign The callsign of the operator.
+ * @param string $first_name The first name of the operator.
+ * @param string $last_name The last name of the operator.
+ * @param string $class The class of the operator.
+ * @param string $date_start The start date of the license.
+ * @param string $date_exp The expiration date of the license.
+ * @param string $new_call The new callsign of the operator.
+ * @param string $old_call The old callsign of the operator.
+ * @param string $address The address of the operator.
+ * @param string $address2 The second address line of the operator.
+ * @param string $city The city of the operator.
+ * @param string $state The state of the operator.
+ * @param string $zip The zip code of the operator.
+ * @param string $country The country of the operator.
+ * @param string $email The email of the operator.
+ * @param string $phone The phone number of the operator.
+ * @param string $born The birth date of the operator.
+ * @param string $custom The custom field of the operator.
+ * @param string $role The role of the operator.
+ */
 function insertData($conn, $callsign, $first_name, $last_name, $class, $date_start, $date_exp, $new_call, $old_call, $address, $address2, $city, $state, $zip, $country, $email, $phone, $born, $custom, $role) {
 
     $stmt = $conn->prepare("INSERT INTO tbl_Operator (Call_Index, FirstName, LastName, Class, Lic_issued, Lic_exp, NewCall, Old_call, Address_1, Address_2, City, State, Zip, Country, E_Mail, Phone, DOB, Custom_Field, Role) 
@@ -693,6 +739,12 @@ function insertData($conn, $callsign, $first_name, $last_name, $class, $date_sta
     $stmt->close();
 }
 
+/**
+ * Get the first letter after the number in a callsign.
+ * 
+ * @param string $call The callsign to extract the letter from.
+ * @return string The first letter after the number in the callsign.
+ */
 function getFirstLetterAfterNumber($call) {
     if (preg_match('/(\d+)([a-zA-Z])/', $call, $matches)) {
         return $matches[2]; // The letter is in the second capturing group
@@ -705,15 +757,16 @@ function getFirstLetterAfterNumber($call) {
 
 
 /**
- * Inserts a new user and a corresponding section record into the database.
+ * Inserts or updates a user and a corresponding section record into the database.
  *
  * @param string $callsign     The username/callsign.
  * @param string $role         The user role.
  * @param string $email        The user email.
  * @param string $letter       The section letter.
  * @param string $sectionStatus The section status.
- *
- * @return string A message indicating success or describing the error.
+ * @param bool $delete         Whether to delete the user and section.
+ * @param bool $fetchOnly      Whether to fetch the user and section data without modifying.
+ * @return array A message indicating success or describing the error.
  */
 function upsertUserAndSection($callsign, $role = null, $email = null, $letter = null, $sectionStatus = null, $delete = false, $fetchOnly = false) {
     try {
@@ -815,6 +868,15 @@ function upsertUserAndSection($callsign, $role = null, $email = null, $letter = 
 
 
 
+/**
+ * Fetches filtered data based on net balance, status, and cards on hand.
+ *
+ * @param PDO $pdo The PDO instance representing the database connection.
+ * @param float $netBalanceMin The minimum net balance for filtering.
+ * @param array $statusFilter The status filter array.
+ * @param int $cardsOnHandMin The minimum cards on hand for filtering.
+ * @return array An array of associative arrays representing the fetched rows.
+ */
 function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active', 'License Expired'], $cardsOnHandMin = 0) {
     // Dynamically create a parameterized IN clause for statuses
     $statusPlaceholders = implode(',', array_fill(0, count($statusFilter), '?'));
@@ -892,7 +954,12 @@ function fetchFilteredData($pdo, $netBalanceMin = 0.88, $statusFilter = ['Active
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-
+/**
+ * Get the total number of cards on hand for active operators.
+ *
+ * @param PDO $pdo The PDO instance representing the database connection.
+ * @return int The total number of cards on hand.
+ */
 function getTotalCardsOnHand($pdo) {
     $sql = "
         SELECT 

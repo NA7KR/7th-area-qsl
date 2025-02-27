@@ -17,7 +17,7 @@ limitations under the License.
 //print_r($_POST);
 
 session_set_cookie_params([
-    'lifetime' => 86400,
+    'lifetime' => 3600, // Reduced to 1 hour
     'path' => '/',
     'domain' => $_SERVER['HTTP_HOST'],
     'secure' => true,
@@ -37,7 +37,6 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = $_POST['username'];
     $password = $_POST['password'];
-//echo $username;
     try {
         $pdo = getPDOConnectionLogin($config['db']); 
 
@@ -50,7 +49,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['loggedin'] = true;
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
-            header('Location: paid.php');
+            
+            if ($user['ChangePassword'] == 1) {
+                header('Location: passwordchange.php');
+            } else {
+                header('Location: paid.php');
+            }
             exit;
         } else {
             $error = 'Invalid username or password.';
@@ -58,13 +62,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (PDOException $e) {
         $error = "Database error: ". $e->getMessage();
     }
-}?>
+}
+?>
 
 <div class="center-content">
     <?php if (isset($_SESSION['loggedin']) && $_SESSION['loggedin'] === true):?>
         <div class="welcome-container">
             <img src="/7thArea.png" alt="7th Area" />
-            <h2>Welcome, <?php echo strtoupper(htmlspecialchars($_SESSION['username']?? ''));?>!</h2>  <h2>You are logged in as a <?php echo htmlspecialchars($_SESSION['role']?? '');?>.</h2> </div>
+            <h2>Welcome, <?php echo strtoupper(htmlspecialchars($_SESSION['username']?? ''));?>!</h2>  
+            <h2>You are logged in as a <?php echo htmlspecialchars($_SESSION['role']?? '');?>.</h2> 
+        </div>
     <?php else:?>
         <div class="login-container">
             <img src="/7thArea.png" alt="7th Area" />
@@ -84,4 +91,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <?php
-include("$root/backend/footer.php");?>
+include("$root/backend/footer.php");
+?>

@@ -15,23 +15,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
  */
 session_start();
+
+// Set root directory and page title
 $root  = realpath($_SERVER["DOCUMENT_ROOT"]);
 $title = "Edit Operator";
 include("$root/backend/header.php");
 include_once("$root/backend/functions.php");
-// Ensure the user is logged in.
+
+// Ensure the user is logged in
 if (!isset($_SESSION['loggedin']) || $_SESSION['loggedin'] !== true) {
     header('Location: login.php');
     exit;
 }
 
-#echo "<pre>" . print_r($_POST, true) . "</pre>";
-
+// Define user role and username
 $role = $_SESSION['role'] ?? 'Admin';
 $user = strtoupper($_SESSION['username'] ?? 'No Call');
 $available_roles = ['User', 'Admin', 'Ops'];
 
-// --- Default values for the form fields ---
+// Default values for the form fields
 $callsign     = (string)($callsign ?? '');
 $suffix       = (string)($suffix ?? '');
 $first_name   = (string)($first_name ?? '');
@@ -50,12 +52,12 @@ $country      = (string)($country ?? '');
 $email        = (string)($email ?? '');
 $phone        = (string)($phone ?? '');
 $born         = (string)($born ?? '');
-$status= (string)($status ?? '');
+$status       = (string)($status ?? '');
 $roleField    = (string)($roleField ?? 'User');
 
 $message = ""; // Message to display to the user
 
-// --- Process POST data ---
+// Process POST data
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
     
@@ -64,6 +66,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } else {
         switch($_POST['action']) {
             case 'fetch_qrz':
+                // Fetch data from QRZ
                 if ($_POST['status'] === 'Custom Address') {
                     $message = "Cannot fetch QRZ data when Custom Address is selected";
                 } else {
@@ -92,10 +95,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $message = "Form cleared";
                 break;
 
-        
-
             case 'update':
-                // --- UPDATE OPERATOR DATA ---
+                // Add new operator data to the database
                 $callsign = strtoupper(trim($_POST['callsign'] ?? ''));
                 if (empty($callsign)) {
                     $message = "Callsign is required for adding.";
@@ -144,9 +145,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                         $zip           = trim($_POST['zip'] ?? '');
                                         $email         = trim($_POST['email'] ?? '');
                                         $phone         = trim($_POST['phone'] ?? '');
-                                        $dob          = trim($_POST['born'] ?? '');
-                                        $status = trim($_POST['status'] ?? 'Active');  // Use consistent field name
-                                           // Convert date formats for the 'born' field if needed
+                                        $dob           = trim($_POST['born'] ?? '');
+                                        $status        = trim($_POST['status'] ?? 'Active');  // Use consistent field name
+                                        // Convert date formats for the 'born' field if needed
                                         if ($dob !== null) {
                                             if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $dob)) { // YYYY-MM-DD HH:MM:SS format
                                                 $born = $dob;
@@ -165,7 +166,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                     
                                         $updated = date("Y-m-d");
 
-                                        // Build and execute the UPDATE query
+                                        // Build and execute the INSERT query
                                         $sql = "INSERT INTO tbl_Operator (
                                             `Call`, `Suffix`, `FirstName`, `LastName`, `Class`, 
                                             `Lic-issued`, `Lic-exp`, `NewCall`, `Old_call`,
